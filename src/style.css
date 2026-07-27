@@ -1,0 +1,9 @@
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: linear-gradient(180deg, #FFE9F1 0%, #FFF4E0 35%, #EAF7EE 100%);
+  color: #4A3B45;
+  min-height: 100vh;
+}
+input, select, button, textarea { font-family: inherit; }
