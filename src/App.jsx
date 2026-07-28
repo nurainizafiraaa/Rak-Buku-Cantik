@@ -1006,10 +1006,7 @@ export default function App() {
                       }}>
                         {status === "available" ? t.available : t.reading}
                       </span>
-                      {b.cover_url && (
-                        <img src={b.cover_url} alt={b.title} style={{ width: "100%", height: 110, objectFit: "cover", borderRadius: 8, marginBottom: 10 }} />
-                      )}
-                      <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 15.5, paddingRight: b.cover_url ? 0 : 70, marginBottom: 2, color: "#5A3B4A" }}>{b.title}</div>
+                      <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 15.5, paddingRight: 70, marginBottom: 2, color: "#5A3B4A" }}>{b.title}</div>
                       <div style={{ fontSize: 12.5, color: "#8A6D7D", marginBottom: 8 }}>{b.author}</div>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
                         <span style={{ fontSize: 10.5, background: "rgba(255,255,255,0.7)", padding: "2px 8px", borderRadius: 20 }}>{b.genre}</span>
