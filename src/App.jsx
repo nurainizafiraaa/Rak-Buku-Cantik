@@ -52,7 +52,7 @@ const T = {
     ownerLabel: "Owner",
     edit: "Edit",
     delete: "Hapus",
-    borrow: "Ajukan Pinjam",
+    borrow: "Ajukan Baca",
     yourBook: "Buku Kamu",
     addBookTitle: "Tambah Buku Baru",
     bookCode: "Kode Buku",
@@ -68,22 +68,26 @@ const T = {
     finishBy: "Target Selesai Dibaca",
     save: "Simpan",
     cancel: "Batal",
-    loanRequest: "Ajukan Peminjaman",
+    loanRequest: "Ajukan Membaca",
     book: "Buku",
     pickBook: "Pilih buku",
-    borrowerName: "Nama Peminjam",
+    borrowerName: "Nama Pembaca",
     loanDate: "Tanggal Pinjam",
     targetReturn: "Target Kembali",
     submit: "Ajukan",
-    myLoans: "Pinjaman Saya",
+    myLoans: "Bacaan Saya",
     incoming: "Permintaan Masuk",
-    noLoans: "Belum ada peminjaman.",
+    sectionWaiting: "Menunggu Persetujuan",
+    sectionReading: "Sedang Dibaca",
+    sectionHistory: "Riwayat Membaca",
+    returnedBooksSection: "Buku yang Sudah Kembali",
+    noLoans: "Belum ada aktivitas.",
     approve: "Setujui",
     reject: "Tolak",
     markReturned: "Tandai Dikembalikan",
     pending: "Menunggu Persetujuan",
     approved: "Disetujui",
-    active: "Sedang Dipinjam",
+    active: "Sedang Dibaca",
     returned: "Sudah Dikembalikan",
     rejectedStatus: "Ditolak",
     addMember: "Tambah Member",
@@ -128,7 +132,7 @@ const T = {
     ownerLabel: "Owner",
     edit: "Edit",
     delete: "Delete",
-    borrow: "Request to Borrow",
+    borrow: "Request to Read",
     yourBook: "Your Book",
     addBookTitle: "Add New Book",
     bookCode: "Book Code",
@@ -144,22 +148,26 @@ const T = {
     finishBy: "Expected Finish Date",
     save: "Save",
     cancel: "Cancel",
-    loanRequest: "Request a Loan",
+    loanRequest: "Request to Read",
     book: "Book",
     pickBook: "Choose a book",
-    borrowerName: "Borrower Name",
+    borrowerName: "Reader Name",
     loanDate: "Loan Date",
     targetReturn: "Target Return",
     submit: "Submit",
-    myLoans: "My Loans",
+    myLoans: "My Reads",
     incoming: "Incoming Requests",
-    noLoans: "No loans yet.",
+    sectionWaiting: "Awaiting Approval",
+    sectionReading: "Currently Reading",
+    sectionHistory: "Reading History",
+    returnedBooksSection: "Returned Books",
+    noLoans: "No activity yet.",
     approve: "Approve",
     reject: "Reject",
     markReturned: "Mark as Returned",
-    pending: "Pending Approval",
+    pending: "Awaiting Approval",
     approved: "Approved",
-    active: "Currently Borrowed",
+    active: "Currently Reading",
     returned: "Returned",
     rejectedStatus: "Rejected",
     addMember: "Add Member",
@@ -439,14 +447,61 @@ export default function App() {
     setTab("peminjaman");
   };
 
+  const [activateModal, setActivateModal] = useState(null);
+  const [returnModal, setReturnModal] = useState(null);
+  const [proofFile, setProofFile] = useState(null);
+  const [uploadingProof, setUploadingProof] = useState(false);
+
+  const uploadProof = async (file) => {
+    const ext = file.name.split(".").pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from("loan-proofs").upload(fileName, file);
+    if (uploadError) throw uploadError;
+    const { data } = supabase.storage.from("loan-proofs").getPublicUrl(fileName);
+    return data.publicUrl;
+  };
+
+  const confirmActivate = async () => {
+    setUploadingProof(true);
+    setErr("");
+    try {
+      let photoUrl = null;
+      if (proofFile) photoUrl = await uploadProof(proofFile);
+      const { data, error } = await supabase.from("loans").update({ status: "active", handover_photo_url: photoUrl }).eq("id", activateModal.id).select().single();
+      if (error) throw error;
+      setLoans((prev) => prev.map((l) => (l.id === data.id ? data : l)));
+      setActivateModal(null);
+      setProofFile(null);
+    } catch (e) {
+      setErr("Gagal: " + e.message);
+    }
+    setUploadingProof(false);
+  };
+
+  const confirmReturn = async () => {
+    setUploadingProof(true);
+    setErr("");
+    try {
+      let photoUrl = null;
+      if (proofFile) photoUrl = await uploadProof(proofFile);
+      const { data, error } = await supabase.from("loans").update({ status: "returned", actual_return_date: todayISO(), return_photo_url: photoUrl }).eq("id", returnModal.id).select().single();
+      if (error) throw error;
+      setLoans((prev) => prev.map((l) => (l.id === data.id ? data : l)));
+      setReturnModal(null);
+      setProofFile(null);
+    } catch (e) {
+      setErr("Gagal: " + e.message);
+    }
+    setUploadingProof(false);
+  };
+
   const respondLoan = async (loan, action) => {
     let update = {};
     if (action === "approve") update = { status: "approved" };
     if (action === "reject") update = { status: "rejected" };
-    if (action === "activate") update = { status: "active" };
-    if (action === "return") update = { status: "returned", actual_return_date: todayISO() };
     const { data, error } = await supabase.from("loans").update(update).eq("id", loan.id).select().single();
-    if (!error && data) setLoans((prev) => prev.map((l) => (l.id === data.id ? data : l)));
+    if (error) return setErr("Gagal: " + error.message);
+    if (data) setLoans((prev) => prev.map((l) => (l.id === data.id ? data : l)));
   };
 
   // ---- Members ----
@@ -546,6 +601,8 @@ export default function App() {
     () => (session ? loans.filter((l) => books.find((b) => b.id === l.book_id)?.owner_id === session.id) : []),
     [loans, books, session]
   );
+  const incomingOngoing = useMemo(() => incomingLoans.filter((l) => ["pending", "approved", "active"].includes(l.status)), [incomingLoans]);
+  const incomingFinished = useMemo(() => incomingLoans.filter((l) => ["returned", "rejected"].includes(l.status)), [incomingLoans]);
   const myLoans = useMemo(() => (session ? loans.filter((l) => l.borrower_id === session.id) : []), [loans, session]);
 
   const availableBooksForLoan = useMemo(() => books.filter((b) => deriveBookStatus(b) === "available" && b.owner_id !== session?.id), [books, loans, session]);
@@ -769,11 +826,11 @@ export default function App() {
             {canManage && (
               <div style={{ marginBottom: 30 }}>
                 <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54" }}>{t.incoming}</h2>
-                {incomingLoans.length === 0 ? (
+                {incomingOngoing.length === 0 ? (
                   <div style={{ textAlign: "center", padding: 30, color: "#B79AA8" }}>{t.noLoans}</div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {incomingLoans.map((l) => {
+                    {incomingOngoing.map((l) => {
                       const book = books.find((b) => b.id === l.book_id);
                       const sc = STATUS_COLORS[l.status];
                       return (
@@ -783,6 +840,20 @@ export default function App() {
                               <div style={{ fontWeight: 700 }}>{book?.title}</div>
                               <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.borrowerName}: <b>{memberName(l.borrower_id)}</b></div>
                               <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
+                              {(l.handover_photo_url || l.return_photo_url) && (
+                                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                                  {l.handover_photo_url && (
+                                    <a href={l.handover_photo_url} target="_blank" rel="noreferrer">
+                                      <img src={l.handover_photo_url} alt="handover" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 6, border: "1px solid #E7D3DE" }} title={lang === "id" ? "Bukti serah" : "Handover proof"} />
+                                    </a>
+                                  )}
+                                  {l.return_photo_url && (
+                                    <a href={l.return_photo_url} target="_blank" rel="noreferrer">
+                                      <img src={l.return_photo_url} alt="return" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 6, border: "1px solid #E7D3DE" }} title={lang === "id" ? "Bukti kembali" : "Return proof"} />
+                                    </a>
+                                  )}
+                                </div>
+                              )}
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
                               <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
@@ -791,8 +862,8 @@ export default function App() {
                                   <Btn onClick={() => respondLoan(l, "approve")}>{t.approve}</Btn>
                                   <Btn variant="danger" onClick={() => respondLoan(l, "reject")}>{t.reject}</Btn>
                                 </>)}
-                                {l.status === "approved" && <Btn onClick={() => respondLoan(l, "activate")}>{t.active}</Btn>}
-                                {l.status === "active" && <Btn variant="ghost" onClick={() => respondLoan(l, "return")}>{t.markReturned}</Btn>}
+                                {l.status === "approved" && <Btn onClick={() => { setActivateModal(l); setProofFile(null); }}>{t.active}</Btn>}
+                                {l.status === "active" && <Btn variant="ghost" onClick={() => { setReturnModal(l); setProofFile(null); }}>{t.markReturned}</Btn>}
                               </div>
                             </div>
                           </div>
@@ -804,27 +875,91 @@ export default function App() {
               </div>
             )}
 
-            <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54" }}>{t.myLoans}</h2>
-            {myLoans.length === 0 ? (
-              <div style={{ textAlign: "center", padding: 30, color: "#B79AA8" }}>{t.noLoans}</div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {myLoans.map((l) => {
-                  const book = books.find((b) => b.id === l.book_id);
-                  const sc = STATUS_COLORS[l.status];
-                  return (
-                    <Card key={l.id}>
-                      <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-                        <div>
-                          <div style={{ fontWeight: 700 }}>{book?.title}</div>
-                          <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.ownerLabel}: {memberName(book?.owner_id)}</div>
-                          <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
-                        </div>
-                        <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color, alignSelf: "flex-start" }}>{t[l.status] || l.status}</span>
-                      </div>
-                    </Card>
-                  );
-                })}
+            {[
+              { key: "pending", title: t.sectionWaiting, items: myLoans.filter((l) => l.status === "pending") },
+              { key: "active", title: t.sectionReading, items: myLoans.filter((l) => l.status === "approved" || l.status === "active") },
+              { key: "history", title: t.sectionHistory, items: myLoans.filter((l) => l.status === "returned" || l.status === "rejected") },
+            ].map((group) => (
+              <div key={group.key} style={{ marginBottom: 28 }}>
+                <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54" }}>{group.title}</h2>
+                {group.items.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: 20, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {group.items.map((l) => {
+                      const book = books.find((b) => b.id === l.book_id);
+                      const sc = STATUS_COLORS[l.status];
+                      return (
+                        <Card key={l.id}>
+                          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                            <div>
+                              <div style={{ fontWeight: 700 }}>{book?.title}</div>
+                              <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.ownerLabel}: {memberName(book?.owner_id)}</div>
+                              <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
+                              {(l.handover_photo_url || l.return_photo_url) && (
+                                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                                  {l.handover_photo_url && (
+                                    <a href={l.handover_photo_url} target="_blank" rel="noreferrer">
+                                      <img src={l.handover_photo_url} alt="handover" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, border: "1px solid #E7D3DE" }} />
+                                    </a>
+                                  )}
+                                  {l.return_photo_url && (
+                                    <a href={l.return_photo_url} target="_blank" rel="noreferrer">
+                                      <img src={l.return_photo_url} alt="return" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, border: "1px solid #E7D3DE" }} />
+                                    </a>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color, alignSelf: "flex-start" }}>{t[l.status] || l.status}</span>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {canManage && (
+              <div style={{ marginTop: 8 }}>
+                <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54" }}>{t.returnedBooksSection}</h2>
+                {incomingFinished.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: 20, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {incomingFinished.map((l) => {
+                      const book = books.find((b) => b.id === l.book_id);
+                      const sc = STATUS_COLORS[l.status];
+                      return (
+                        <Card key={l.id}>
+                          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                            <div>
+                              <div style={{ fontWeight: 700 }}>{book?.title}</div>
+                              <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.borrowerName}: <b>{memberName(l.borrower_id)}</b></div>
+                              <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
+                              {(l.handover_photo_url || l.return_photo_url) && (
+                                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                                  {l.handover_photo_url && (
+                                    <a href={l.handover_photo_url} target="_blank" rel="noreferrer">
+                                      <img src={l.handover_photo_url} alt="handover" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, border: "1px solid #E7D3DE" }} />
+                                    </a>
+                                  )}
+                                  {l.return_photo_url && (
+                                    <a href={l.return_photo_url} target="_blank" rel="noreferrer">
+                                      <img src={l.return_photo_url} alt="return" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, border: "1px solid #E7D3DE" }} />
+                                    </a>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color, alignSelf: "flex-start" }}>{t[l.status] || l.status}</span>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1023,6 +1158,48 @@ export default function App() {
               <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                 <Btn onClick={saveProfile}>{t.save}</Btn>
                 <Btn variant="ghost" onClick={() => setShowEditProfile(false)}>{t.cancel}</Btn>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Activate loan (mark handed over) modal */}
+      {activateModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55, padding: 16 }} onClick={() => setActivateModal(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: 380, maxWidth: "100%" }}>
+            <Card>
+              <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, marginBottom: 4, color: "#6B3B54" }}>
+                {lang === "id" ? "Tandai Diserahkan" : "Mark as Handed Over"}
+              </div>
+              <div style={{ fontSize: 13, color: "#8A6D7D", marginBottom: 14 }}>{books.find((b) => b.id === activateModal.book_id)?.title}</div>
+              <Field label={lang === "id" ? "Foto Bukti Serah Terima (opsional)" : "Handover Proof Photo (optional)"}>
+                <input type="file" accept="image/*" onChange={(e) => setProofFile(e.target.files?.[0] || null)} style={inputStyle} />
+              </Field>
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <Btn onClick={confirmActivate} disabled={uploadingProof}>{uploadingProof ? t.uploading : t.submit}</Btn>
+                <Btn variant="ghost" onClick={() => setActivateModal(null)} disabled={uploadingProof}>{t.cancel}</Btn>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Return loan modal */}
+      {returnModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55, padding: 16 }} onClick={() => setReturnModal(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: 380, maxWidth: "100%" }}>
+            <Card>
+              <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, marginBottom: 4, color: "#6B3B54" }}>
+                {t.markReturned}
+              </div>
+              <div style={{ fontSize: 13, color: "#8A6D7D", marginBottom: 14 }}>{books.find((b) => b.id === returnModal.book_id)?.title}</div>
+              <Field label={lang === "id" ? "Foto Bukti Pengembalian (opsional)" : "Return Proof Photo (optional)"}>
+                <input type="file" accept="image/*" onChange={(e) => setProofFile(e.target.files?.[0] || null)} style={inputStyle} />
+              </Field>
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <Btn onClick={confirmReturn} disabled={uploadingProof}>{uploadingProof ? t.uploading : t.submit}</Btn>
+                <Btn variant="ghost" onClick={() => setReturnModal(null)} disabled={uploadingProof}>{t.cancel}</Btn>
               </div>
             </Card>
           </div>
