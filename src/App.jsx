@@ -288,7 +288,7 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
-      const saved = localStorage.getItem("rakcantik_session");
+      const saved = sessionStorage.getItem("rakcantik_session");
       if (saved) {
         try {
           setSession(JSON.parse(saved));
@@ -327,7 +327,7 @@ export default function App() {
     }
     const s = { id: member.id, name: member.name, role: "member" };
     setSession(s);
-    localStorage.setItem("rakcantik_session", JSON.stringify(s));
+    sessionStorage.setItem("rakcantik_session", JSON.stringify(s));
     setScreen("app");
     setTab("katalog");
   };
@@ -341,14 +341,14 @@ export default function App() {
     if (!owner) return setLoginErr(t.errWrongCode);
     const s = { id: owner.id, name: owner.name, role: owner.role };
     setSession(s);
-    localStorage.setItem("rakcantik_session", JSON.stringify(s));
+    sessionStorage.setItem("rakcantik_session", JSON.stringify(s));
     setScreen("app");
     setTab("katalog");
   };
 
   const logout = () => {
     setSession(null);
-    localStorage.removeItem("rakcantik_session");
+    sessionStorage.removeItem("rakcantik_session");
     setScreen("welcome");
     setInputName("");
     setInputCode("");
@@ -560,7 +560,7 @@ export default function App() {
     setMembers((prev) => prev.map((m) => (m.id === data.id ? data : m)));
     const newSession = { ...session, name: data.name };
     setSession(newSession);
-    localStorage.setItem("rakcantik_session", JSON.stringify(newSession));
+    sessionStorage.setItem("rakcantik_session", JSON.stringify(newSession));
     setShowEditProfile(false);
   };
 
