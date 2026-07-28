@@ -7,3 +7,21 @@ body {
   min-height: 100vh;
 }
 input, select, button, textarea { font-family: inherit; }
+
+.rc-card {
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+.rc-card:hover {
+  box-shadow: 0 6px 18px rgba(107, 59, 84, 0.10);
+  transform: translateY(-2px);
+}
+.rc-btn {
+  transition: opacity 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+.rc-btn:hover {
+  box-shadow: 0 3px 10px rgba(107, 59, 84, 0.12);
+}
+.rc-btn:active {
+  transform: scale(0.97);
+}
+
