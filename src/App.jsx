@@ -456,6 +456,33 @@ export default function App() {
 
   const [newOwnerCode, setNewOwnerCode] = useState(null);
 
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({ name: "", email: "", wa_contact: "", access_code: "" });
+  const [profileErr, setProfileErr] = useState("");
+
+  const openEditProfile = () => {
+    const me = members.find((m) => m.id === session.id);
+    if (!me) return;
+    setProfileForm({ name: me.name, email: me.email || "", wa_contact: me.wa_contact || "", access_code: me.access_code || "" });
+    setProfileErr("");
+    setShowEditProfile(true);
+  };
+
+  const saveProfile = async () => {
+    setProfileErr("");
+    if (!profileForm.name.trim()) return setProfileErr(t.errFillName);
+    if (session.role !== "member" && !profileForm.access_code.trim()) return setProfileErr(lang === "id" ? "Kode akses tidak boleh kosong." : "Access code cannot be empty.");
+    const payload = { name: profileForm.name.trim(), email: profileForm.email, wa_contact: profileForm.wa_contact };
+    if (session.role !== "member") payload.access_code = profileForm.access_code.trim();
+    const { data, error } = await supabase.from("members").update(payload).eq("id", session.id).select().single();
+    if (error) return setProfileErr("Gagal menyimpan: " + error.message);
+    setMembers((prev) => prev.map((m) => (m.id === data.id ? data : m)));
+    const newSession = { ...session, name: data.name };
+    setSession(newSession);
+    localStorage.setItem("rakcantik_session", JSON.stringify(newSession));
+    setShowEditProfile(false);
+  };
+
   const deleteMember = async (id) => {
     // clean up related loans & books first to avoid foreign key errors
     const theirBooks = books.filter((b) => b.owner_id === id).map((b) => b.id);
@@ -637,6 +664,11 @@ export default function App() {
             {isQueen ? "👑 Queen" : session.role === "owner" ? t.owner : t.member}
           </span>
           <span style={{ fontSize: 13.5, fontWeight: 600 }}>{session.name}</span>
+          {session.role !== "member" && (
+            <Btn variant="ghost" onClick={openEditProfile}>
+              {lang === "id" ? "Edit Profil" : "Edit Profile"}
+            </Btn>
+          )}
           <Btn variant="ghost" onClick={logout}>{t.logout}</Btn>
         </div>
       </div>
@@ -734,7 +766,7 @@ export default function App() {
 
         {tab === "peminjaman" && (
           <div>
-            {session.role === "owner" && (
+            {canManage && (
               <div style={{ marginBottom: 30 }}>
                 <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54" }}>{t.incoming}</h2>
                 {incomingLoans.length === 0 ? (
@@ -816,7 +848,7 @@ export default function App() {
                       <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: m.role === "queen" ? "#F0C419" : m.role === "owner" ? "#F6C6DC" : "#DFF3F5", color: "#6B3B54" }}>
                         {m.role === "queen" ? "👑 Queen" : m.role === "owner" ? t.owner : t.member}
                       </span>
-                      {(m.role === "owner" || m.role === "queen") && canManage && (
+                      {isQueen && m.role !== "queen" && (
                         <Btn variant="ghost" onClick={() => setNewOwnerCode({ name: m.name, code: m.access_code })}>
                           {lang === "id" ? "Lihat Kode" : "View Code"}
                         </Btn>
@@ -968,6 +1000,30 @@ export default function App() {
                 {lang === "id" ? "Catat/kirim kode ini sekarang — tidak akan ditampilkan lagi." : "Save/send this code now — it won't be shown again."}
               </p>
               <Btn onClick={() => setNewOwnerCode(null)} style={{ width: "100%", justifyContent: "center" }}>OK</Btn>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Edit own profile modal */}
+      {showEditProfile && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55, padding: 16 }} onClick={() => setShowEditProfile(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: 380, maxWidth: "100%" }}>
+            <Card>
+              <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, marginBottom: 14, color: "#6B3B54" }}>
+                {lang === "id" ? "Edit Profil Saya" : "Edit My Profile"}
+              </div>
+              <Field label={t.fullName}><input style={inputStyle} value={profileForm.name} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })} /></Field>
+              <Field label={t.email}><input style={inputStyle} value={profileForm.email} onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })} /></Field>
+              <Field label={t.wa}><input style={inputStyle} value={profileForm.wa_contact} onChange={(e) => setProfileForm({ ...profileForm, wa_contact: e.target.value })} /></Field>
+              <Field label={t.accessCode}>
+                <input style={inputStyle} value={profileForm.access_code} onChange={(e) => setProfileForm({ ...profileForm, access_code: e.target.value })} />
+              </Field>
+              {profileErr && <div style={{ color: "#B4544F", fontSize: 12.5, marginBottom: 10 }}>{profileErr}</div>}
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <Btn onClick={saveProfile}>{t.save}</Btn>
+                <Btn variant="ghost" onClick={() => setShowEditProfile(false)}>{t.cancel}</Btn>
+              </div>
             </Card>
           </div>
         </div>
