@@ -10,6 +10,7 @@ import {
   LogOut,
   RefreshCw,
   Award,
+  MessageCircle,
 } from "lucide-react";
 
 const GENRES = ["Fiksi", "Non-Fiksi", "Sejarah", "Sains", "Biografi", "Anak", "Bisnis", "Puisi", "Self Improvement", "Lainnya"];
@@ -114,6 +115,8 @@ const T = {
     footer: "Organized by GDP Girls",
     errFillName: "Nama tidak boleh kosong.",
     errWrongCode: "Kode akses salah.",
+    errNotFound: "Nama tidak ditemukan. Coba ajukan akun baru.",
+    errPendingApproval: "Akun kamu masih menunggu persetujuan Queen.",
     errEndBeforeStart: "Tanggal kembali harus setelah tanggal pinjam.",
     errConflict: "Buku sudah dipesan/dipinjam pada rentang tanggal ini.",
   },
@@ -196,6 +199,8 @@ const T = {
     footer: "Organized by GDP Girls",
     errFillName: "Name cannot be empty.",
     errWrongCode: "Wrong access code.",
+    errNotFound: "Name not found. Try requesting a new account.",
+    errPendingApproval: "Your account is still awaiting Queen's approval.",
     errEndBeforeStart: "Return date must be after loan date.",
     errConflict: "This book is already booked/borrowed for this date range.",
   },
@@ -292,6 +297,30 @@ export default function App() {
   const [inputCode, setInputCode] = useState("");
   const [loginErr, setLoginErr] = useState("");
 
+  const [requestRole, setRequestRole] = useState("member");
+  const [requestForm, setRequestForm] = useState({ name: "", email: "", wa_contact: "", access_code: "" });
+  const [requestErr, setRequestErr] = useState("");
+  const [requestSubmitted, setRequestSubmitted] = useState(false);
+
+  const submitAccessRequest = async () => {
+    setRequestErr("");
+    if (!requestForm.name.trim()) return setRequestErr(t.errFillName);
+    const dup = members.find((m) => m.name.toLowerCase() === requestForm.name.trim().toLowerCase());
+    if (dup) return setRequestErr(lang === "id" ? "Nama ini sudah terdaftar." : "This name is already registered.");
+    const payload = {
+      name: requestForm.name.trim(),
+      email: requestForm.email,
+      wa_contact: requestForm.wa_contact,
+      role: requestRole,
+      status: "pending",
+      access_code: requestRole === "owner" ? (requestForm.access_code.trim() || genCode("WG-")) : null,
+    };
+    const { data, error } = await supabase.from("members").insert(payload).select().single();
+    if (error) return setRequestErr("Gagal mengirim permintaan: " + error.message);
+    setMembers((prev) => [data, ...prev]);
+    setRequestSubmitted(true);
+  };
+
   const fetchAll = useCallback(async () => {
     const [m, b, l] = await Promise.all([
       supabase.from("members").select("*").order("created_at", { ascending: false }),
@@ -334,17 +363,9 @@ export default function App() {
   const doLoginMember = async () => {
     setLoginErr("");
     if (!inputName.trim()) return setLoginErr(t.errFillName);
-    let member = members.find((m) => m.name.toLowerCase() === inputName.trim().toLowerCase() && m.role === "member");
-    if (!member) {
-      const { data, error } = await supabase
-        .from("members")
-        .insert({ name: inputName.trim(), role: "member" })
-        .select()
-        .single();
-      if (error) return setLoginErr("Gagal membuat akun member. Coba lagi.");
-      member = data;
-      setMembers((prev) => [data, ...prev]);
-    }
+    const member = members.find((m) => m.name.toLowerCase() === inputName.trim().toLowerCase() && m.role === "member");
+    if (!member) return setLoginErr(t.errNotFound);
+    if (member.status === "pending") return setLoginErr(t.errPendingApproval);
     const s = { id: member.id, name: member.name, role: "member" };
     setSession(s);
     sessionStorage.setItem("rakcantik_session", JSON.stringify(s));
@@ -359,6 +380,7 @@ export default function App() {
       (m) => m.name.toLowerCase() === inputName.trim().toLowerCase() && (m.role === "owner" || m.role === "queen") && m.access_code === inputCode
     );
     if (!owner) return setLoginErr(t.errWrongCode);
+    if (owner.status === "pending") return setLoginErr(t.errPendingApproval);
     const s = { id: owner.id, name: owner.name, role: owner.role };
     setSession(s);
     sessionStorage.setItem("rakcantik_session", JSON.stringify(s));
@@ -600,6 +622,25 @@ export default function App() {
     setLoans((prev) => prev.filter((l) => l.borrower_id !== id && !theirBooks.includes(l.book_id)));
   };
 
+  const approveMember = async (id) => {
+    const { error } = await supabase.from("members").update({ status: "approved" }).eq("id", id);
+    if (error) return setErr("Gagal menyetujui: " + error.message);
+    setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, status: "approved" } : m)));
+  };
+
+  const waNotifyLink = (m) => {
+    if (!m.wa_contact) return null;
+    let digits = m.wa_contact.replace(/[^0-9]/g, "");
+    if (digits.startsWith("0")) digits = "62" + digits.slice(1);
+    else if (!digits.startsWith("62")) digits = "62" + digits;
+    const roleLabel = m.role === "owner" ? (lang === "id" ? "Owner" : "Owner") : lang === "id" ? "Member" : "Member";
+    const msg =
+      lang === "id"
+        ? `Halo ${m.name}! Akun Rak Cantik kamu sebagai ${roleLabel} sudah disetujui 🌸. Sekarang kamu sudah bisa login${m.role === "owner" ? ` dengan kode akses: ${m.access_code}` : ""}.`
+        : `Hi ${m.name}! Your Rak Cantik account as ${roleLabel} has been approved 🌸. You can now log in${m.role === "owner" ? ` with access code: ${m.access_code}` : ""}.`;
+    return `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
+  };
+
   const saveMember = async () => {
     if (!memberForm.name.trim()) return;
     const payload = { ...memberForm };
@@ -756,6 +797,22 @@ export default function App() {
               <Btn variant="ghost" onClick={() => setScreen("login-owner")} style={{ width: "100%", justifyContent: "center", padding: "12px" }}>
                 <Sparkles size={15} /> {t.loginOwner}
               </Btn>
+              <div style={{ textAlign: "center", fontSize: 11.5, color: "#B79AA8", margin: "6px 0" }}>
+                {lang === "id" ? "— atau —" : "— or —"}
+              </div>
+              <Btn
+                variant="ghost"
+                onClick={() => {
+                  setRequestRole("member");
+                  setRequestForm({ name: "", email: "", wa_contact: "", access_code: "" });
+                  setRequestErr("");
+                  setRequestSubmitted(false);
+                  setScreen("request-role");
+                }}
+                style={{ width: "100%", justifyContent: "center", padding: "12px" }}
+              >
+                {lang === "id" ? "Ajukan Akun Baru" : "Request Access"}
+              </Btn>
             </div>
           )}
           {screen === "login-member" && (
@@ -779,6 +836,63 @@ export default function App() {
               {loginErr && <div style={{ color: "#B4544F", fontSize: 12.5, marginBottom: 10 }}>{loginErr}</div>}
               <Btn onClick={doLoginOwner} style={{ width: "100%", justifyContent: "center", marginBottom: 8 }}>{t.login}</Btn>
               <Btn variant="ghost" onClick={() => { setScreen("welcome"); setLoginErr(""); setInputName(""); setInputCode(""); }} style={{ width: "100%", justifyContent: "center" }}>{t.back}</Btn>
+            </div>
+          )}
+          {screen === "request-role" && (
+            <div>
+              <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, marginBottom: 14, color: "#6B3B54" }}>
+                {lang === "id" ? "Mau daftar sebagai apa?" : "What would you like to register as?"}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <Btn onClick={() => { setRequestRole("member"); setScreen("request-form"); }} style={{ width: "100%", justifyContent: "center", padding: "12px" }}>
+                  <Flower2 size={15} /> {t.member}
+                </Btn>
+                <Btn variant="ghost" onClick={() => { setRequestRole("owner"); setScreen("request-form"); }} style={{ width: "100%", justifyContent: "center", padding: "12px" }}>
+                  <Sparkles size={15} /> {t.owner}
+                </Btn>
+              </div>
+              <Btn variant="ghost" onClick={() => setScreen("welcome")} style={{ width: "100%", justifyContent: "center", marginTop: 14 }}>{t.back}</Btn>
+            </div>
+          )}
+          {screen === "request-form" && !requestSubmitted && (
+            <div>
+              <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, marginBottom: 4, color: "#6B3B54" }}>
+                {lang === "id" ? "Ajukan Akun" : "Request Access"} — {requestRole === "owner" ? t.owner : t.member}
+              </div>
+              <p style={{ fontSize: 12, color: "#8A6D7D", marginBottom: 14 }}>
+                {lang === "id" ? "Permintaan kamu perlu disetujui Queen sebelum bisa login." : "Your request needs Queen's approval before you can log in."}
+              </p>
+              <Field label={t.fullName}>
+                <input style={inputStyle} value={requestForm.name} onChange={(e) => setRequestForm({ ...requestForm, name: e.target.value })} autoFocus />
+              </Field>
+              <Field label={t.email}>
+                <input style={inputStyle} value={requestForm.email} onChange={(e) => setRequestForm({ ...requestForm, email: e.target.value })} />
+              </Field>
+              <Field label={t.wa}>
+                <input style={inputStyle} value={requestForm.wa_contact} onChange={(e) => setRequestForm({ ...requestForm, wa_contact: e.target.value })} />
+              </Field>
+              {requestRole === "owner" && (
+                <Field label={lang === "id" ? "Kode Akses (buat sendiri, opsional)" : "Access Code (create your own, optional)"}>
+                  <input style={inputStyle} value={requestForm.access_code} onChange={(e) => setRequestForm({ ...requestForm, access_code: e.target.value })} placeholder={lang === "id" ? "Kosongkan untuk dibuatkan otomatis" : "Leave blank to auto-generate"} />
+                </Field>
+              )}
+              {requestErr && <div style={{ color: "#B4544F", fontSize: 12.5, marginBottom: 10 }}>{requestErr}</div>}
+              <Btn onClick={submitAccessRequest} style={{ width: "100%", justifyContent: "center", marginBottom: 8 }}>{t.submit}</Btn>
+              <Btn variant="ghost" onClick={() => setScreen("request-role")} style={{ width: "100%", justifyContent: "center" }}>{t.back}</Btn>
+            </div>
+          )}
+          {screen === "request-form" && requestSubmitted && (
+            <div style={{ textAlign: "center" }}>
+              <Sparkles size={26} color="#C6789A" style={{ marginBottom: 10 }} />
+              <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, marginBottom: 8, color: "#6B3B54" }}>
+                {lang === "id" ? "Permintaan Terkirim!" : "Request Sent!"}
+              </div>
+              <p style={{ fontSize: 13, color: "#8A6D7D", marginBottom: 18 }}>
+                {lang === "id"
+                  ? "Tunggu Queen menyetujui akun kamu, lalu kembali ke sini untuk login."
+                  : "Wait for the Queen to approve your account, then come back here to log in."}
+              </p>
+              <Btn onClick={() => setScreen("welcome")} style={{ width: "100%", justifyContent: "center" }}>{t.back}</Btn>
             </div>
           )}
         </Card>
@@ -1117,12 +1231,43 @@ export default function App() {
 
         {tab === "members" && canManage && (
           <div>
+            {isQueen && (
+              <div style={{ marginBottom: 26 }}>
+                <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54", marginBottom: 12 }}>
+                  {lang === "id" ? "Permintaan Akun Baru" : "New Account Requests"}
+                </h2>
+                {members.filter((m) => m.status === "pending").length === 0 ? (
+                  <div style={{ textAlign: "center", padding: 16, color: "#B79AA8", fontSize: 13 }}>{t.noLoans}</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {members.filter((m) => m.status === "pending").map((m) => (
+                      <Card key={m.id}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                          <div>
+                            <div style={{ fontWeight: 700 }}>{m.name}</div>
+                            <div style={{ fontSize: 12, color: "#8A6D7D" }}>{m.email || "-"} {m.wa_contact ? `· WA: ${m.wa_contact}` : ""}</div>
+                            <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 9px", borderRadius: 20, background: m.role === "owner" ? "#F6C6DC" : "#DFF3F5", color: "#6B3B54", display: "inline-block", marginTop: 4 }}>
+                              {m.role === "owner" ? t.owner : t.member}
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <Btn onClick={() => approveMember(m.id)}>{t.approve}</Btn>
+                            <Btn variant="danger" onClick={() => deleteMember(m.id)}>{t.reject}</Btn>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 21, color: "#6B3B54", margin: 0, display: "flex", alignItems: "center", gap: 8 }}><Users size={19} /> {t.members}</h2>
               <Btn onClick={() => setShowAddMember(true)}>+ {t.addMember}</Btn>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {members.map((m) => (
+              {members.filter((m) => m.status === "approved").map((m) => (
                 <Card key={m.id}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
                     <div>
@@ -1133,6 +1278,15 @@ export default function App() {
                       <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: m.role === "queen" ? "#F0C419" : m.role === "owner" ? "#F6C6DC" : "#DFF3F5", color: "#6B3B54" }}>
                         {m.role === "queen" ? (<><Crown size={12} style={{ display: "inline", verticalAlign: -1 }} /> Queen</>) : m.role === "owner" ? t.owner : t.member}
                       </span>
+                      {waNotifyLink(m) && isQueen && (
+                        <Btn
+                          variant="ghost"
+                          onClick={() => window.open(waNotifyLink(m), "_blank")}
+                          style={{ color: "#3C8A5C" }}
+                        >
+                          <MessageCircle size={13} />
+                        </Btn>
+                      )}
                       {isQueen && m.role !== "queen" && (
                         <Btn variant="ghost" onClick={() => setNewOwnerCode({ name: m.name, code: m.access_code })}>
                           {lang === "id" ? "Lihat Kode" : "View Code"}
