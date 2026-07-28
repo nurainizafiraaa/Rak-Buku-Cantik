@@ -281,6 +281,17 @@ function Card({ children, style, className = "" }) {
   );
 }
 
+function EmptyState({ icon: Icon, text }) {
+  return (
+    <div style={{ textAlign: "center", padding: "48px 20px" }}>
+      <div style={{ width: 56, height: 56, borderRadius: 14, background: "#F6DCE8", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px" }}>
+        <Icon size={24} color="#C6789A" />
+      </div>
+      <div style={{ color: "#8A6D7D", fontSize: 13.5, fontWeight: 600 }}>{text}</div>
+    </div>
+  );
+}
+
 function MobileStyles() {
   return (
     <style>{`
@@ -1111,15 +1122,17 @@ export default function App() {
               <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 21, color: "#6B3B54", margin: 0, display: "flex", alignItems: "center", gap: 8 }}><ArrowLeftRight size={19} /> {t.peminjaman}</h2>
               <Btn onClick={() => { setShowBorrowPicker(true); setBorrowPickBookId(""); }}>+ {t.borrowBook}</Btn>
             </div>
-            <select style={{ ...inputStyle, marginBottom: 18 }} value={loansView} onChange={(e) => setLoansView(e.target.value)}>
+            <select style={{ ...inputStyle, width: "auto", minWidth: 190, marginBottom: 18 }} value={loansView} onChange={(e) => setLoansView(e.target.value)}>
               <option value="active">{t.sectionReading}</option>
+              {canManage && <option value="incoming">{t.incoming}</option>}
               <option value="pending">{t.sectionWaiting}</option>
-              <option value="returned">{t.returnedBooksSection}</option>
+              {canManage && <option value="finished">{t.returnedBooksSection}</option>}
+              <option value="history">{t.sectionHistory}</option>
             </select>
 
             {loansView === "active" && (
               currentlyReading.length === 0 ? (
-                <div style={{ textAlign: "center", padding: 30, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
+                <EmptyState icon={ArrowLeftRight} text={t.noLoans} />
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {currentlyReading.map((l) => {
@@ -1167,135 +1180,119 @@ export default function App() {
               )
             )}
 
-            {loansView === "pending" && (
-              <>
-                {canManage && (
-                  <div style={{ marginBottom: 22 }}>
-                    <h3 style={{ fontSize: 13.5, color: "#8A6D7D", marginBottom: 8, fontWeight: 700 }}>{t.incoming}</h3>
-                    {incomingAwaiting.length === 0 && <div style={{ textAlign: "center", padding: 16, color: "#B79AA8", fontSize: 13 }}>{t.noLoans}</div>}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {incomingAwaiting.map((l) => {
-                        const book = books.find((b) => b.id === l.book_id);
-                        const sc = STATUS_COLORS[l.status];
-                        return (
-                          <Card key={l.id}>
-                            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-                              <div>
-                                <div style={{ fontWeight: 700 }}>{book?.title}</div>
-                                <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.borrowerName}: <b>{memberName(l.borrower_id)}</b></div>
-                                <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
-                              </div>
-                              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-                                <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
-                                <div style={{ display: "flex", gap: 6 }}>
-                                  {l.status === "pending" && (<>
-                                    <Btn onClick={() => respondLoan(l, "approve")}>{t.approve}</Btn>
-                                    <Btn variant="danger" onClick={() => respondLoan(l, "reject")}>{t.reject}</Btn>
-                                  </>)}
-                                  {l.status === "approved" && <Btn onClick={() => { setActivateModal(l); setProofFile(null); }}>{t.markHandover}</Btn>}
-                                </div>
-                              </div>
+            {loansView === "incoming" && canManage && (
+              incomingAwaiting.length === 0 ? (
+                <EmptyState icon={ArrowLeftRight} text={t.noLoans} />
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {incomingAwaiting.map((l) => {
+                    const book = books.find((b) => b.id === l.book_id);
+                    const sc = STATUS_COLORS[l.status];
+                    return (
+                      <Card key={l.id}>
+                        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                          <div>
+                            <div style={{ fontWeight: 700 }}>{book?.title}</div>
+                            <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.borrowerName}: <b>{memberName(l.borrower_id)}</b></div>
+                            <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              {l.status === "pending" && (<>
+                                <Btn onClick={() => respondLoan(l, "approve")}>{t.approve}</Btn>
+                                <Btn variant="danger" onClick={() => respondLoan(l, "reject")}>{t.reject}</Btn>
+                              </>)}
+                              {l.status === "approved" && <Btn onClick={() => { setActivateModal(l); setProofFile(null); }}>{t.markHandover}</Btn>}
                             </div>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                <div>
-                  {canManage && <h3 style={{ fontSize: 13.5, color: "#8A6D7D", marginBottom: 8, fontWeight: 700 }}>{t.myLoans}</h3>}
-                  {canManage && myLoans.filter((l) => ["pending", "approved"].includes(l.status)).length === 0 && (
-                    <div style={{ textAlign: "center", padding: 16, color: "#B79AA8", fontSize: 13 }}>{t.noLoans}</div>
-                  )}
-                  {myLoans.filter((l) => ["pending", "approved"].includes(l.status)).length > 0 && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {myLoans.filter((l) => ["pending", "approved"].includes(l.status)).map((l) => {
-                        const book = books.find((b) => b.id === l.book_id);
-                        const sc = STATUS_COLORS[l.status];
-                        return (
-                          <Card key={l.id}>
-                            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-                              <div>
-                                <div style={{ fontWeight: 700 }}>{book?.title}</div>
-                                <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.ownerLabel}: {memberName(book?.owner_id)}</div>
-                                <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
-                              </div>
-                              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color, alignSelf: "flex-start" }}>{t[l.status] || l.status}</span>
-                            </div>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  )}
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
                 </div>
-                {(!canManage || incomingAwaiting.length === 0) && myLoans.filter((l) => ["pending", "approved"].includes(l.status)).length === 0 && (
-                  <div style={{ textAlign: "center", padding: 30, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
-                )}
-              </>
+              )
             )}
 
-            {loansView === "returned" && (
-              <>
-                {canManage && (
-                  <div style={{ marginBottom: 22 }}>
-                    <h3 style={{ fontSize: 13.5, color: "#8A6D7D", marginBottom: 8, fontWeight: 700 }}>{t.returnedBooksSection}</h3>
-                    {incomingFinished.length === 0 && <div style={{ textAlign: "center", padding: 16, color: "#B79AA8", fontSize: 13 }}>{t.noLoans}</div>}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {incomingFinished.map((l) => {
-                        const book = books.find((b) => b.id === l.book_id);
-                        const sc = STATUS_COLORS[l.status];
-                        return (
-                          <Card key={l.id}>
-                            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-                              <div>
-                                <div style={{ fontWeight: 700 }}>{book?.title}</div>
-                                <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.borrowerName}: <b>{memberName(l.borrower_id)}</b></div>
-                                <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
-                              </div>
-                              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-                                <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
-                                <Btn variant="danger" onClick={() => hideLoanForOwner(l.id)}>{t.delete}</Btn>
-                              </div>
-                            </div>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-                <div>
-                  {canManage && <h3 style={{ fontSize: 13.5, color: "#8A6D7D", marginBottom: 8, fontWeight: 700 }}>{t.sectionHistory}</h3>}
-                  {canManage && myLoans.filter((l) => l.status === "returned" || l.status === "rejected").length === 0 && (
-                    <div style={{ textAlign: "center", padding: 16, color: "#B79AA8", fontSize: 13 }}>{t.noLoans}</div>
-                  )}
-                  {myLoans.filter((l) => l.status === "returned" || l.status === "rejected").length > 0 && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      {myLoans.filter((l) => l.status === "returned" || l.status === "rejected").map((l) => {
-                        const book = books.find((b) => b.id === l.book_id);
-                        const sc = STATUS_COLORS[l.status];
-                        return (
-                          <Card key={l.id}>
-                            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-                              <div>
-                                <div style={{ fontWeight: 700 }}>{book?.title}</div>
-                                <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.ownerLabel}: {memberName(book?.owner_id)}</div>
-                                <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
-                              </div>
-                              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-                                <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
-                                <Btn variant="danger" onClick={() => hideLoanForBorrower(l.id)}>{t.delete}</Btn>
-                              </div>
-                            </div>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  )}
+            {loansView === "pending" && (
+              myLoans.filter((l) => ["pending", "approved"].includes(l.status)).length === 0 ? (
+                <EmptyState icon={ArrowLeftRight} text={t.noLoans} />
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {myLoans.filter((l) => ["pending", "approved"].includes(l.status)).map((l) => {
+                    const book = books.find((b) => b.id === l.book_id);
+                    const sc = STATUS_COLORS[l.status];
+                    return (
+                      <Card key={l.id}>
+                        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                          <div>
+                            <div style={{ fontWeight: 700 }}>{book?.title}</div>
+                            <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.ownerLabel}: {memberName(book?.owner_id)}</div>
+                            <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color, alignSelf: "flex-start" }}>{t[l.status] || l.status}</span>
+                        </div>
+                      </Card>
+                    );
+                  })}
                 </div>
-                {(!canManage || incomingFinished.length === 0) && myLoans.filter((l) => l.status === "returned" || l.status === "rejected").length === 0 && (
-                  <div style={{ textAlign: "center", padding: 30, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
-                )}
-              </>
+              )
+            )}
+
+            {loansView === "finished" && canManage && (
+              incomingFinished.length === 0 ? (
+                <EmptyState icon={ArrowLeftRight} text={t.noLoans} />
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {incomingFinished.map((l) => {
+                    const book = books.find((b) => b.id === l.book_id);
+                    const sc = STATUS_COLORS[l.status];
+                    return (
+                      <Card key={l.id}>
+                        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                          <div>
+                            <div style={{ fontWeight: 700 }}>{book?.title}</div>
+                            <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.borrowerName}: <b>{memberName(l.borrower_id)}</b></div>
+                            <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
+                            <Btn variant="danger" onClick={() => hideLoanForOwner(l.id)}>{t.delete}</Btn>
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )
+            )}
+
+            {loansView === "history" && (
+              myLoans.filter((l) => l.status === "returned" || l.status === "rejected").length === 0 ? (
+                <EmptyState icon={ArrowLeftRight} text={t.noLoans} />
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {myLoans.filter((l) => l.status === "returned" || l.status === "rejected").map((l) => {
+                    const book = books.find((b) => b.id === l.book_id);
+                    const sc = STATUS_COLORS[l.status];
+                    return (
+                      <Card key={l.id}>
+                        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                          <div>
+                            <div style={{ fontWeight: 700 }}>{book?.title}</div>
+                            <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.ownerLabel}: {memberName(book?.owner_id)}</div>
+                            <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
+                            <Btn variant="danger" onClick={() => hideLoanForBorrower(l.id)}>{t.delete}</Btn>
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )
             )}
           </div>
         )}
@@ -1307,7 +1304,7 @@ export default function App() {
               <Btn onClick={() => setShowAddMember(true)}>+ {t.addMember}</Btn>
             </div>
 
-            <select style={{ ...inputStyle, marginBottom: 16 }} value={memberFilter} onChange={(e) => setMemberFilter(e.target.value)}>
+            <select style={{ ...inputStyle, width: "auto", minWidth: 190, marginBottom: 16 }} value={memberFilter} onChange={(e) => setMemberFilter(e.target.value)}>
               <option value="all">{t.allMembers}</option>
               <option value="member">{t.member}</option>
               <option value="owner">{t.owner}</option>
@@ -1320,7 +1317,7 @@ export default function App() {
 
             {memberFilter === "pending" ? (
               members.filter((m) => m.status === "pending").length === 0 ? (
-                <div style={{ textAlign: "center", padding: 30, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
+                <EmptyState icon={Users} text={t.noLoans} />
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {members.filter((m) => m.status === "pending").map((m) => (
@@ -1343,45 +1340,51 @@ export default function App() {
                 </div>
               )
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {members
+              (() => {
+                const filteredMembers = members
                   .filter((m) => m.status === "approved")
-                  .filter((m) => memberFilter === "all" || m.role === memberFilter)
-                  .map((m) => (
-                    <Card key={m.id}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                        <div>
-                          <div style={{ fontWeight: 700 }}>{m.name}</div>
-                          <div style={{ fontSize: 12, color: "#8A6D7D" }}>{m.email || "-"} {m.wa_contact ? `· WA: ${m.wa_contact}` : ""}</div>
+                  .filter((m) => memberFilter === "all" || m.role === memberFilter);
+                return filteredMembers.length === 0 ? (
+                  <EmptyState icon={Users} text={t.noLoans} />
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {filteredMembers.map((m) => (
+                      <Card key={m.id}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                          <div>
+                            <div style={{ fontWeight: 700 }}>{m.name}</div>
+                            <div style={{ fontSize: 12, color: "#8A6D7D" }}>{m.email || "-"} {m.wa_contact ? `· WA: ${m.wa_contact}` : ""}</div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: m.role === "queen" ? "#F0C419" : m.role === "owner" ? "#F6C6DC" : "#DFF3F5", color: "#6B3B54" }}>
+                              {m.role === "queen" ? (<><Crown size={12} style={{ display: "inline", verticalAlign: -1 }} /> Queen</>) : m.role === "owner" ? t.owner : t.member}
+                            </span>
+                            {waNotifyLink(m) && isQueen && (
+                              <Btn
+                                variant="ghost"
+                                onClick={() => window.open(waNotifyLink(m), "_blank")}
+                                style={{ color: "#3C8A5C" }}
+                              >
+                                <MessageCircle size={13} />
+                              </Btn>
+                            )}
+                            {isQueen && m.role !== "queen" && (
+                              <Btn variant="ghost" onClick={() => setNewOwnerCode({ name: m.name, code: m.access_code })}>
+                                {lang === "id" ? "Lihat Kode" : "View Code"}
+                              </Btn>
+                            )}
+                            {isQueen && m.role !== "queen" && (
+                              <Btn variant="danger" onClick={() => deleteMember(m.id)}>
+                                <Trash2 size={13} />
+                              </Btn>
+                            )}
+                          </div>
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: m.role === "queen" ? "#F0C419" : m.role === "owner" ? "#F6C6DC" : "#DFF3F5", color: "#6B3B54" }}>
-                            {m.role === "queen" ? (<><Crown size={12} style={{ display: "inline", verticalAlign: -1 }} /> Queen</>) : m.role === "owner" ? t.owner : t.member}
-                          </span>
-                          {waNotifyLink(m) && isQueen && (
-                            <Btn
-                              variant="ghost"
-                              onClick={() => window.open(waNotifyLink(m), "_blank")}
-                              style={{ color: "#3C8A5C" }}
-                            >
-                              <MessageCircle size={13} />
-                            </Btn>
-                          )}
-                          {isQueen && m.role !== "queen" && (
-                            <Btn variant="ghost" onClick={() => setNewOwnerCode({ name: m.name, code: m.access_code })}>
-                              {lang === "id" ? "Lihat Kode" : "View Code"}
-                            </Btn>
-                          )}
-                          {isQueen && m.role !== "queen" && (
-                            <Btn variant="danger" onClick={() => deleteMember(m.id)}>
-                              <Trash2 size={13} />
-                            </Btn>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-              </div>
+                      </Card>
+                    ))}
+                  </div>
+                );
+              })()
             )}
           </div>
         )}
@@ -1728,7 +1731,7 @@ export default function App() {
               <div style={{ fontSize: 12.5, color: "#8A6D7D", marginBottom: 6 }}>{t.ownerLabel}: <b>{memberName(detailBook.owner_id)}</b></div>
               {detailBook.notes && <div style={{ fontSize: 12.5, color: "#8A6D7D", marginBottom: 14, fontStyle: "italic" }}>"{detailBook.notes}"</div>}
 
-              <div style={{ marginTop: 14 }}>
+              <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
                 {isOwnerOf(detailBook) ? (
                   <div style={{ display: "flex", gap: 8 }}>
                     <Btn
@@ -1752,31 +1755,46 @@ export default function App() {
                       {t.delete}
                     </Btn>
                   </div>
-                ) : isQueen ? (
-                  <Btn
-                    variant="danger"
-                    onClick={() => {
-                      deleteBook(detailBook.id);
-                      setDetailBook(null);
-                    }}
-                    style={{ width: "100%", justifyContent: "center" }}
-                  >
-                    <Crown size={13} /> {t.delete}
-                  </Btn>
                 ) : (
-                  <Btn
-                    onClick={() => {
-                      setRequestModalBook(detailBook);
-                      setReqStart(todayISO());
-                      setReqEnd(todayISO());
-                      setReqErr("");
-                      setDetailBook(null);
-                    }}
-                    disabled={deriveBookStatus(detailBook) !== "available"}
-                    style={{ width: "100%", justifyContent: "center" }}
-                  >
-                    {t.borrow}
-                  </Btn>
+                  <>
+                    {isQueen && (
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <Btn
+                          variant="ghost"
+                          onClick={() => {
+                            openEditBook(detailBook);
+                            setDetailBook(null);
+                          }}
+                          style={{ flex: 1, justifyContent: "center" }}
+                        >
+                          <Crown size={13} /> {t.edit}
+                        </Btn>
+                        <Btn
+                          variant="danger"
+                          onClick={() => {
+                            deleteBook(detailBook.id);
+                            setDetailBook(null);
+                          }}
+                          style={{ flex: 1, justifyContent: "center" }}
+                        >
+                          <Crown size={13} /> {t.delete}
+                        </Btn>
+                      </div>
+                    )}
+                    <Btn
+                      onClick={() => {
+                        setRequestModalBook(detailBook);
+                        setReqStart(todayISO());
+                        setReqEnd(todayISO());
+                        setReqErr("");
+                        setDetailBook(null);
+                      }}
+                      disabled={deriveBookStatus(detailBook) !== "available"}
+                      style={{ width: "100%", justifyContent: "center" }}
+                    >
+                      {t.borrow}
+                    </Btn>
+                  </>
                 )}
               </div>
 
