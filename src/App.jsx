@@ -85,6 +85,7 @@ const T = {
     approve: "Setujui",
     reject: "Tolak",
     markReturned: "Tandai Dikembalikan",
+    markHandover: "Serahkan Buku",
     pending: "Menunggu Persetujuan",
     approved: "Disetujui",
     active: "Sedang Dibaca",
@@ -165,6 +166,7 @@ const T = {
     approve: "Approve",
     reject: "Reject",
     markReturned: "Mark as Returned",
+    markHandover: "Hand Over Book",
     pending: "Awaiting Approval",
     approved: "Approved",
     active: "Currently Reading",
@@ -613,14 +615,14 @@ export default function App() {
     () => (session ? loans.filter((l) => books.find((b) => b.id === l.book_id)?.owner_id === session.id) : []),
     [loans, books, session]
   );
-  const incomingPending = useMemo(() => incomingLoans.filter((l) => l.status === "pending"), [incomingLoans]);
+  const incomingAwaiting = useMemo(() => incomingLoans.filter((l) => ["pending", "approved"].includes(l.status)), [incomingLoans]);
   const incomingFinished = useMemo(() => incomingLoans.filter((l) => ["returned", "rejected"].includes(l.status)), [incomingLoans]);
   const myLoans = useMemo(() => (session ? loans.filter((l) => l.borrower_id === session.id) : []), [loans, session]);
   const currentlyReading = useMemo(() => {
     if (!session) return [];
-    const mine = loans.filter((l) => l.borrower_id === session.id && ["approved", "active"].includes(l.status));
+    const mine = loans.filter((l) => l.borrower_id === session.id && l.status === "active");
     const lent = loans.filter(
-      (l) => books.find((b) => b.id === l.book_id)?.owner_id === session.id && ["approved", "active"].includes(l.status)
+      (l) => books.find((b) => b.id === l.book_id)?.owner_id === session.id && l.status === "active"
     );
     const combined = [...mine, ...lent];
     return combined.filter((l, i) => combined.findIndex((x) => x.id === l.id) === i);
@@ -847,11 +849,11 @@ export default function App() {
             {canManage && (
               <div style={{ marginBottom: 28 }}>
                 <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54" }}>{t.incoming}</h2>
-                {incomingPending.length === 0 ? (
+                {incomingAwaiting.length === 0 ? (
                   <div style={{ textAlign: "center", padding: 20, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {incomingPending.map((l) => {
+                    {incomingAwaiting.map((l) => {
                       const book = books.find((b) => b.id === l.book_id);
                       const sc = STATUS_COLORS[l.status];
                       return (
@@ -865,8 +867,11 @@ export default function App() {
                             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
                               <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
                               <div style={{ display: "flex", gap: 6 }}>
-                                <Btn onClick={() => respondLoan(l, "approve")}>{t.approve}</Btn>
-                                <Btn variant="danger" onClick={() => respondLoan(l, "reject")}>{t.reject}</Btn>
+                                {l.status === "pending" && (<>
+                                  <Btn onClick={() => respondLoan(l, "approve")}>{t.approve}</Btn>
+                                  <Btn variant="danger" onClick={() => respondLoan(l, "reject")}>{t.reject}</Btn>
+                                </>)}
+                                {l.status === "approved" && <Btn onClick={() => { setActivateModal(l); setProofFile(null); }}>{t.markHandover}</Btn>}
                               </div>
                             </div>
                           </div>
@@ -880,11 +885,11 @@ export default function App() {
 
             <div style={{ marginBottom: 28 }}>
               <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54" }}>{t.sectionWaiting}</h2>
-              {myLoans.filter((l) => l.status === "pending").length === 0 ? (
+              {myLoans.filter((l) => ["pending", "approved"].includes(l.status)).length === 0 ? (
                 <div style={{ textAlign: "center", padding: 20, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {myLoans.filter((l) => l.status === "pending").map((l) => {
+                  {myLoans.filter((l) => ["pending", "approved"].includes(l.status)).map((l) => {
                     const book = books.find((b) => b.id === l.book_id);
                     const sc = STATUS_COLORS[l.status];
                     return (
@@ -941,7 +946,6 @@ export default function App() {
                             <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
                             {amOwner && (
                               <div style={{ display: "flex", gap: 6 }}>
-                                {l.status === "approved" && <Btn onClick={() => { setActivateModal(l); setProofFile(null); }}>{t.active}</Btn>}
                                 {l.status === "active" && <Btn variant="ghost" onClick={() => { setReturnModal(l); setProofFile(null); }}>{t.markReturned}</Btn>}
                               </div>
                             )}
