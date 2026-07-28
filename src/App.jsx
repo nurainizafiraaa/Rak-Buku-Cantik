@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 
-const GENRES = ["Fiksi", "Non-Fiksi", "Islam", "Sains", "Biografi", "Anak", "Bisnis", "Puisi", "Self Improvement", "Sejarah", "Lainnya"];
+const GENRES = ["Fiksi", "Non-Fiksi", "Sejarah", "Sains", "Biografi", "Anak", "Bisnis", "Puisi", "Self Improvement", "Religi", "Lainnya"];
 
 const PASTELS = ["#FFE1EC", "#FFF1D6", "#E6F4EA", "#EDE4FB", "#DFF3F5", "#FFE9DA"];
 function pastelFor(seed) {
@@ -992,17 +992,11 @@ export default function App() {
     );
   }
 
-  const tabs =
-    canManage
-      ? [
-          { id: "katalog", label: t.katalog, icon: BookOpen },
-          { id: "peminjaman", label: t.peminjaman, icon: ArrowLeftRight },
-          { id: "members", label: t.members, icon: Users },
-        ]
-      : [
-          { id: "katalog", label: t.katalog, icon: BookOpen },
-          { id: "peminjaman", label: t.peminjaman, icon: ArrowLeftRight },
-        ];
+  const tabs = [
+    { id: "katalog", label: t.katalog, icon: BookOpen },
+    { id: "peminjaman", label: t.peminjaman, icon: ArrowLeftRight },
+    { id: "members", label: t.members, icon: Users },
+  ];
 
   return (
     <div style={{ minHeight: "100dvh", fontFamily: "'Inter', sans-serif", color: "#4A3B45", paddingBottom: 60 }}>
@@ -1297,11 +1291,11 @@ export default function App() {
           </div>
         )}
 
-        {tab === "members" && canManage && (
+        {tab === "members" && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 21, color: "#6B3B54", margin: 0, display: "flex", alignItems: "center", gap: 8 }}><Users size={19} /> {t.members}</h2>
-              <Btn onClick={() => setShowAddMember(true)}>+ {t.addMember}</Btn>
+              {canManage && <Btn onClick={() => setShowAddMember(true)}>+ {t.addMember}</Btn>}
             </div>
 
             <select style={{ ...inputStyle, width: "auto", minWidth: 190, marginBottom: 16 }} value={memberFilter} onChange={(e) => setMemberFilter(e.target.value)}>
@@ -1633,7 +1627,7 @@ export default function App() {
 
       {/* Edit own profile modal */}
       {showEditProfile && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55, padding: 16 }} onClick={() => setShowEditProfile(false)}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55, padding: 16 }} onClick={() => { setShowEditProfile(false); setShowProfileMenu(true); }}>
           <div className="rc-modal-card" onClick={(e) => e.stopPropagation()} style={{ width: 380, maxWidth: "100%" }}>
             <Card>
               <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, marginBottom: 14, color: "#6B3B54" }}>
@@ -1648,7 +1642,7 @@ export default function App() {
               {profileErr && <div style={{ color: "#B4544F", fontSize: 12.5, marginBottom: 10 }}>{profileErr}</div>}
               <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                 <Btn onClick={saveProfile}>{t.save}</Btn>
-                <Btn variant="ghost" onClick={() => setShowEditProfile(false)}>{t.cancel}</Btn>
+                <Btn variant="ghost" onClick={() => { setShowEditProfile(false); setShowProfileMenu(true); }}>{t.back}</Btn>
               </div>
             </Card>
           </div>
@@ -1808,7 +1802,7 @@ export default function App() {
 
       {/* Reading stats modal */}
       {showStats && readingStats && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55, padding: 16 }} onClick={() => setShowStats(false)}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55, padding: 16 }} onClick={() => { setShowStats(false); setShowProfileMenu(true); }}>
           <div className="rc-modal-card" onClick={(e) => e.stopPropagation()} style={{ width: 460, maxWidth: "100%" }}>
             <Card>
               <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 17, marginBottom: 4, color: "#6B3B54", display: "flex", alignItems: "center", gap: 8 }}>
@@ -1878,8 +1872,8 @@ export default function App() {
                 ))}
               </div>
 
-              <Btn variant="ghost" onClick={() => setShowStats(false)} style={{ width: "100%", justifyContent: "center", marginTop: 20 }}>
-                {t.cancel}
+              <Btn variant="ghost" onClick={() => { setShowStats(false); setShowProfileMenu(true); }} style={{ width: "100%", justifyContent: "center", marginTop: 20 }}>
+                {t.back}
               </Btn>
             </Card>
           </div>
