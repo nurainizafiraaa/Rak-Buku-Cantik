@@ -290,11 +290,23 @@ export default function App() {
       if (saved) {
         try {
           setSession(JSON.parse(saved));
+          setScreen("app");
         } catch (e) {}
       }
       await fetchAll();
       setLoading(false);
     })();
+
+    const channel = supabase
+      .channel("rakcantik-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "loans" }, fetchAll)
+      .on("postgres_changes", { event: "*", schema: "public", table: "books" }, fetchAll)
+      .on("postgres_changes", { event: "*", schema: "public", table: "members" }, fetchAll)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchAll]);
 
   const doLoginMember = async () => {
@@ -601,9 +613,18 @@ export default function App() {
     () => (session ? loans.filter((l) => books.find((b) => b.id === l.book_id)?.owner_id === session.id) : []),
     [loans, books, session]
   );
-  const incomingOngoing = useMemo(() => incomingLoans.filter((l) => ["pending", "approved", "active"].includes(l.status)), [incomingLoans]);
+  const incomingPending = useMemo(() => incomingLoans.filter((l) => l.status === "pending"), [incomingLoans]);
   const incomingFinished = useMemo(() => incomingLoans.filter((l) => ["returned", "rejected"].includes(l.status)), [incomingLoans]);
   const myLoans = useMemo(() => (session ? loans.filter((l) => l.borrower_id === session.id) : []), [loans, session]);
+  const currentlyReading = useMemo(() => {
+    if (!session) return [];
+    const mine = loans.filter((l) => l.borrower_id === session.id && ["approved", "active"].includes(l.status));
+    const lent = loans.filter(
+      (l) => books.find((b) => b.id === l.book_id)?.owner_id === session.id && ["approved", "active"].includes(l.status)
+    );
+    const combined = [...mine, ...lent];
+    return combined.filter((l, i) => combined.findIndex((x) => x.id === l.id) === i);
+  }, [loans, books, session]);
 
   const availableBooksForLoan = useMemo(() => books.filter((b) => deriveBookStatus(b) === "available" && b.owner_id !== session?.id), [books, loans, session]);
 
@@ -824,13 +845,13 @@ export default function App() {
         {tab === "peminjaman" && (
           <div>
             {canManage && (
-              <div style={{ marginBottom: 30 }}>
+              <div style={{ marginBottom: 28 }}>
                 <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54" }}>{t.incoming}</h2>
-                {incomingOngoing.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: 30, color: "#B79AA8" }}>{t.noLoans}</div>
+                {incomingPending.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: 20, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {incomingOngoing.map((l) => {
+                    {incomingPending.map((l) => {
                       const book = books.find((b) => b.id === l.book_id);
                       const sc = STATUS_COLORS[l.status];
                       return (
@@ -840,30 +861,12 @@ export default function App() {
                               <div style={{ fontWeight: 700 }}>{book?.title}</div>
                               <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.borrowerName}: <b>{memberName(l.borrower_id)}</b></div>
                               <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
-                              {(l.handover_photo_url || l.return_photo_url) && (
-                                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                                  {l.handover_photo_url && (
-                                    <a href={l.handover_photo_url} target="_blank" rel="noreferrer">
-                                      <img src={l.handover_photo_url} alt="handover" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 6, border: "1px solid #E7D3DE" }} title={lang === "id" ? "Bukti serah" : "Handover proof"} />
-                                    </a>
-                                  )}
-                                  {l.return_photo_url && (
-                                    <a href={l.return_photo_url} target="_blank" rel="noreferrer">
-                                      <img src={l.return_photo_url} alt="return" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 6, border: "1px solid #E7D3DE" }} title={lang === "id" ? "Bukti kembali" : "Return proof"} />
-                                    </a>
-                                  )}
-                                </div>
-                              )}
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
                               <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
                               <div style={{ display: "flex", gap: 6 }}>
-                                {l.status === "pending" && (<>
-                                  <Btn onClick={() => respondLoan(l, "approve")}>{t.approve}</Btn>
-                                  <Btn variant="danger" onClick={() => respondLoan(l, "reject")}>{t.reject}</Btn>
-                                </>)}
-                                {l.status === "approved" && <Btn onClick={() => { setActivateModal(l); setProofFile(null); }}>{t.active}</Btn>}
-                                {l.status === "active" && <Btn variant="ghost" onClick={() => { setReturnModal(l); setProofFile(null); }}>{t.markReturned}</Btn>}
+                                <Btn onClick={() => respondLoan(l, "approve")}>{t.approve}</Btn>
+                                <Btn variant="danger" onClick={() => respondLoan(l, "reject")}>{t.reject}</Btn>
                               </div>
                             </div>
                           </div>
@@ -875,54 +878,124 @@ export default function App() {
               </div>
             )}
 
-            {[
-              { key: "pending", title: t.sectionWaiting, items: myLoans.filter((l) => l.status === "pending") },
-              { key: "active", title: t.sectionReading, items: myLoans.filter((l) => l.status === "approved" || l.status === "active") },
-              { key: "history", title: t.sectionHistory, items: myLoans.filter((l) => l.status === "returned" || l.status === "rejected") },
-            ].map((group) => (
-              <div key={group.key} style={{ marginBottom: 28 }}>
-                <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54" }}>{group.title}</h2>
-                {group.items.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: 20, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {group.items.map((l) => {
-                      const book = books.find((b) => b.id === l.book_id);
-                      const sc = STATUS_COLORS[l.status];
-                      return (
-                        <Card key={l.id}>
-                          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-                            <div>
-                              <div style={{ fontWeight: 700 }}>{book?.title}</div>
-                              <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.ownerLabel}: {memberName(book?.owner_id)}</div>
-                              <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
-                              {(l.handover_photo_url || l.return_photo_url) && (
-                                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                                  {l.handover_photo_url && (
-                                    <a href={l.handover_photo_url} target="_blank" rel="noreferrer">
-                                      <img src={l.handover_photo_url} alt="handover" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, border: "1px solid #E7D3DE" }} />
-                                    </a>
-                                  )}
-                                  {l.return_photo_url && (
-                                    <a href={l.return_photo_url} target="_blank" rel="noreferrer">
-                                      <img src={l.return_photo_url} alt="return" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, border: "1px solid #E7D3DE" }} />
-                                    </a>
-                                  )}
-                                </div>
+            <div style={{ marginBottom: 28 }}>
+              <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54" }}>{t.sectionWaiting}</h2>
+              {myLoans.filter((l) => l.status === "pending").length === 0 ? (
+                <div style={{ textAlign: "center", padding: 20, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {myLoans.filter((l) => l.status === "pending").map((l) => {
+                    const book = books.find((b) => b.id === l.book_id);
+                    const sc = STATUS_COLORS[l.status];
+                    return (
+                      <Card key={l.id}>
+                        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                          <div>
+                            <div style={{ fontWeight: 700 }}>{book?.title}</div>
+                            <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.ownerLabel}: {memberName(book?.owner_id)}</div>
+                            <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color, alignSelf: "flex-start" }}>{t[l.status] || l.status}</span>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginBottom: 28 }}>
+              <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54" }}>{t.sectionReading}</h2>
+              {currentlyReading.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 20, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {currentlyReading.map((l) => {
+                    const book = books.find((b) => b.id === l.book_id);
+                    const sc = STATUS_COLORS[l.status];
+                    const amOwner = book?.owner_id === session.id;
+                    return (
+                      <Card key={l.id}>
+                        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                          <div>
+                            <div style={{ fontWeight: 700 }}>{book?.title}</div>
+                            <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>
+                              {amOwner ? (
+                                <>{t.borrowerName}: <b>{memberName(l.borrower_id)}</b></>
+                              ) : (
+                                <>{t.ownerLabel}: {memberName(book?.owner_id)}</>
                               )}
                             </div>
-                            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color, alignSelf: "flex-start" }}>{t[l.status] || l.status}</span>
+                            <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
+                            {(l.handover_photo_url || l.return_photo_url) && (
+                              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                                {l.handover_photo_url && (
+                                  <a href={l.handover_photo_url} target="_blank" rel="noreferrer">
+                                    <img src={l.handover_photo_url} alt="handover" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, border: "1px solid #E7D3DE" }} />
+                                  </a>
+                                )}
+                              </div>
+                            )}
                           </div>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
+                            {amOwner && (
+                              <div style={{ display: "flex", gap: 6 }}>
+                                {l.status === "approved" && <Btn onClick={() => { setActivateModal(l); setProofFile(null); }}>{t.active}</Btn>}
+                                {l.status === "active" && <Btn variant="ghost" onClick={() => { setReturnModal(l); setProofFile(null); }}>{t.markReturned}</Btn>}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginBottom: 28 }}>
+              <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54" }}>{t.sectionHistory}</h2>
+              {myLoans.filter((l) => l.status === "returned" || l.status === "rejected").length === 0 ? (
+                <div style={{ textAlign: "center", padding: 20, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {myLoans.filter((l) => l.status === "returned" || l.status === "rejected").map((l) => {
+                    const book = books.find((b) => b.id === l.book_id);
+                    const sc = STATUS_COLORS[l.status];
+                    return (
+                      <Card key={l.id}>
+                        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                          <div>
+                            <div style={{ fontWeight: 700 }}>{book?.title}</div>
+                            <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.ownerLabel}: {memberName(book?.owner_id)}</div>
+                            <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
+                            {(l.handover_photo_url || l.return_photo_url) && (
+                              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                                {l.handover_photo_url && (
+                                  <a href={l.handover_photo_url} target="_blank" rel="noreferrer">
+                                    <img src={l.handover_photo_url} alt="handover" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, border: "1px solid #E7D3DE" }} />
+                                  </a>
+                                )}
+                                {l.return_photo_url && (
+                                  <a href={l.return_photo_url} target="_blank" rel="noreferrer">
+                                    <img src={l.return_photo_url} alt="return" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, border: "1px solid #E7D3DE" }} />
+                                  </a>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color, alignSelf: "flex-start" }}>{t[l.status] || l.status}</span>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {canManage && (
-              <div style={{ marginTop: 8 }}>
+              <div>
                 <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54" }}>{t.returnedBooksSection}</h2>
                 {incomingFinished.length === 0 ? (
                   <div style={{ textAlign: "center", padding: 20, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
