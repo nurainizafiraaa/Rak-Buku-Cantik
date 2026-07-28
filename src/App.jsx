@@ -1834,11 +1834,11 @@ export default function App() {
               >
                 {readingStats.thisMonthCount === 0
                   ? lang === "id"
-                    ? "Belum ada buku selesai bulan ini — ayo mulai baca! 🌱"
-                    : "No finished books this month yet — time to start reading! 🌱"
+                    ? "Belum ada buku selesai bulan ini, yuk lebih rutin lagi bacanya! 🌱"
+                    : "No finished books this month yet, it's time to start reading! 🌱"
                   : readingStats.thisMonthCount >= 3
                   ? lang === "id"
-                    ? `Keren! ${readingStats.thisMonthCount} buku selesai bulan ini. Terus semangat! ✨`
+                    ? `Keren! ${readingStats.thisMonthCount} buku selesai bulan ini. Terus semangat ya! ✨`
                     : `Amazing! ${readingStats.thisMonthCount} books finished this month. Keep it up! ✨`
                   : lang === "id"
                   ? `${readingStats.thisMonthCount} buku selesai bulan ini. Sedikit lagi! 🌸`
