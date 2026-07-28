@@ -9,6 +9,7 @@ import {
   Trash2,
   LogOut,
   RefreshCw,
+  Award,
 } from "lucide-react";
 
 const GENRES = ["Fiksi", "Non-Fiksi", "Sejarah", "Sains", "Biografi", "Anak", "Bisnis", "Puisi", "Self Improvement", "Lainnya"];
@@ -208,6 +209,7 @@ function Btn({ children, onClick, variant = "primary", disabled, style, type = "
   };
   return (
     <button
+      className="rc-btn"
       type={type}
       disabled={disabled}
       onClick={onClick}
@@ -252,7 +254,7 @@ function Field({ label, children }) {
 
 function Card({ children, style }) {
   return (
-    <div style={{ background: "#fff", border: "1px solid #F0DCE6", borderRadius: 12, padding: 20, ...style }}>
+    <div className="rc-card" style={{ background: "#fff", border: "1px solid #F0DCE6", borderRadius: 12, padding: 20, ...style }}>
       {children}
     </div>
   );
@@ -557,6 +559,7 @@ export default function App() {
   const [newOwnerCode, setNewOwnerCode] = useState(null);
 
   const [showEditProfile, setShowEditProfile] = useState(false);
+  const [showStats, setShowStats] = useState(false);
   const [profileForm, setProfileForm] = useState({ name: "", email: "", wa_contact: "", access_code: "" });
   const [profileErr, setProfileErr] = useState("");
 
@@ -649,6 +652,31 @@ export default function App() {
   const incomingAwaiting = useMemo(() => incomingLoans.filter((l) => ["pending", "approved"].includes(l.status)), [incomingLoans]);
   const incomingFinished = useMemo(() => incomingLoans.filter((l) => ["returned", "rejected"].includes(l.status) && !l.hidden_by_owner), [incomingLoans]);
   const myLoans = useMemo(() => (session ? loans.filter((l) => l.borrower_id === session.id && !l.hidden_by_borrower) : []), [loans, session]);
+
+  const MONTH_NAMES_ID = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+  const MONTH_NAMES_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  const readingStats = useMemo(() => {
+    if (!session) return null;
+    const allBorrowed = loans.filter((l) => l.borrower_id === session.id);
+    const finished = allBorrowed.filter((l) => l.status === "returned" && l.actual_return_date);
+    const totalRead = finished.length;
+    const totalBorrowedEver = allBorrowed.filter((l) => l.status !== "rejected").length;
+
+    const now = new Date();
+    const months = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const count = finished.filter((l) => l.actual_return_date && l.actual_return_date.slice(0, 7) === key).length;
+      months.push({ key, monthIdx: d.getMonth(), count });
+    }
+    const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const thisMonthCount = finished.filter((l) => l.actual_return_date && l.actual_return_date.slice(0, 7) === thisMonthKey).length;
+    const maxCount = Math.max(1, ...months.map((m) => m.count));
+
+    return { totalRead, totalBorrowedEver, months, thisMonthCount, maxCount };
+  }, [loans, session]);
   const currentlyReading = useMemo(() => {
     if (!session) return [];
     const mine = loans.filter((l) => l.borrower_id === session.id && l.status === "active");
@@ -784,6 +812,9 @@ export default function App() {
             {isQueen ? (<><Crown size={12} style={{ display: "inline", verticalAlign: -1 }} /> Queen</>) : session.role === "owner" ? t.owner : t.member}
           </span>
           <span style={{ fontSize: 13.5, fontWeight: 600 }}>{session.name}</span>
+          <Btn variant="ghost" onClick={() => setShowStats(true)}>
+            <Award size={13} /> {lang === "id" ? "Statistik" : "Stats"}
+          </Btn>
           {session.role !== "member" && (
             <Btn variant="ghost" onClick={openEditProfile}>
               {lang === "id" ? "Edit Profil" : "Edit Profile"}
@@ -1328,6 +1359,86 @@ export default function App() {
                 <Btn onClick={confirmReturn} disabled={uploadingProof}>{uploadingProof ? t.uploading : t.markReturned}</Btn>
                 <Btn variant="ghost" onClick={() => setReturnModal(null)} disabled={uploadingProof}>{t.cancel}</Btn>
               </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Reading stats modal */}
+      {showStats && readingStats && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55, padding: 16 }} onClick={() => setShowStats(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: 460, maxWidth: "100%" }}>
+            <Card>
+              <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 17, marginBottom: 4, color: "#6B3B54", display: "flex", alignItems: "center", gap: 8 }}>
+                <Award size={17} /> {lang === "id" ? "Statistik Baca" : "Reading Stats"}
+              </div>
+              <p style={{ fontSize: 12.5, color: "#8A6D7D", marginBottom: 18 }}>{session.name}</p>
+
+              <div style={{ display: "flex", gap: 12, marginBottom: 22 }}>
+                <div style={{ flex: 1, background: "#FBE0EA", borderRadius: 10, padding: "14px 12px", textAlign: "center" }}>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: "#6B3B54", fontFamily: "'Bitter', serif" }}>{readingStats.totalRead}</div>
+                  <div style={{ fontSize: 11, color: "#8A6D7D", marginTop: 2 }}>{lang === "id" ? "Buku Selesai Dibaca" : "Books Finished"}</div>
+                </div>
+                <div style={{ flex: 1, background: "#E6F4EA", borderRadius: 10, padding: "14px 12px", textAlign: "center" }}>
+                  <div style={{ fontSize: 26, fontWeight: 800, color: "#6B3B54", fontFamily: "'Bitter', serif" }}>{readingStats.totalBorrowedEver}</div>
+                  <div style={{ fontSize: 11, color: "#8A6D7D", marginTop: 2 }}>{lang === "id" ? "Total Buku Dipinjam" : "Total Books Borrowed"}</div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: readingStats.thisMonthCount > 0 ? "#FFF1D6" : "#F3EEF1",
+                  borderRadius: 10,
+                  padding: "10px 14px",
+                  fontSize: 12.5,
+                  color: "#6B3B54",
+                  marginBottom: 20,
+                  textAlign: "center",
+                }}
+              >
+                {readingStats.thisMonthCount === 0
+                  ? lang === "id"
+                    ? "Belum ada buku selesai bulan ini — ayo mulai baca! 🌱"
+                    : "No finished books this month yet — time to start reading! 🌱"
+                  : readingStats.thisMonthCount >= 3
+                  ? lang === "id"
+                    ? `Keren! ${readingStats.thisMonthCount} buku selesai bulan ini. Terus semangat! ✨`
+                    : `Amazing! ${readingStats.thisMonthCount} books finished this month. Keep it up! ✨`
+                  : lang === "id"
+                  ? `${readingStats.thisMonthCount} buku selesai bulan ini. Sedikit lagi! 🌸`
+                  : `${readingStats.thisMonthCount} book(s) finished this month. Keep going! 🌸`}
+              </div>
+
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: "#8A6D7D", marginBottom: 10 }}>
+                {lang === "id" ? "12 Bulan Terakhir" : "Last 12 Months"}
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 90, marginBottom: 6 }}>
+                {readingStats.months.map((m) => (
+                  <div key={m.key} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%" }}>
+                    <div
+                      title={`${m.count}`}
+                      style={{
+                        width: "100%",
+                        maxWidth: 22,
+                        height: `${Math.max(4, (m.count / readingStats.maxCount) * 70)}px`,
+                        background: m.count > 0 ? "linear-gradient(180deg,#F6C6DC,#C6789A)" : "#EDE4E8",
+                        borderRadius: 4,
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 4 }}>
+                {readingStats.months.map((m) => (
+                  <div key={m.key} style={{ flex: 1, textAlign: "center", fontSize: 9, color: "#B79AA8" }}>
+                    {(lang === "id" ? MONTH_NAMES_ID : MONTH_NAMES_EN)[m.monthIdx]}
+                  </div>
+                ))}
+              </div>
+
+              <Btn variant="ghost" onClick={() => setShowStats(false)} style={{ width: "100%", justifyContent: "center", marginTop: 20 }}>
+                {t.cancel}
+              </Btn>
             </Card>
           </div>
         </div>
