@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 
-const GENRES = ["Fiksi", "Non-Fiksi", "Sejarah", "Sains", "Biografi", "Anak", "Bisnis", "Puisi", "Self Improvement", "Lainnya"];
+const GENRES = ["Fiksi", "Non-Fiksi", "Sejarah", "Sains", "Biografi", "Anak", "Bisnis", "Puisi", "Self Improvement", "Islamic",  "Lainnya"];
 
 const PASTELS = ["#FFE1EC", "#FFF1D6", "#E6F4EA", "#EDE4FB", "#DFF3F5", "#FFE9DA"];
 function pastelFor(seed) {
