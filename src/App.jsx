@@ -509,10 +509,16 @@ export default function App() {
     setUploadingProof(false);
   };
 
-  const deleteLoan = async (id) => {
-    const { error } = await supabase.from("loans").delete().eq("id", id);
+  const hideLoanForBorrower = async (id) => {
+    const { error } = await supabase.from("loans").update({ hidden_by_borrower: true }).eq("id", id).select().single();
     if (error) return setErr("Gagal menghapus riwayat: " + error.message);
-    setLoans((prev) => prev.filter((l) => l.id !== id));
+    setLoans((prev) => prev.map((l) => (l.id === id ? { ...l, hidden_by_borrower: true } : l)));
+  };
+
+  const hideLoanForOwner = async (id) => {
+    const { error } = await supabase.from("loans").update({ hidden_by_owner: true }).eq("id", id).select().single();
+    if (error) return setErr("Gagal menghapus riwayat: " + error.message);
+    setLoans((prev) => prev.map((l) => (l.id === id ? { ...l, hidden_by_owner: true } : l)));
   };
 
   const respondLoan = async (loan, action) => {
@@ -622,8 +628,8 @@ export default function App() {
     [loans, books, session]
   );
   const incomingAwaiting = useMemo(() => incomingLoans.filter((l) => ["pending", "approved"].includes(l.status)), [incomingLoans]);
-  const incomingFinished = useMemo(() => incomingLoans.filter((l) => ["returned", "rejected"].includes(l.status)), [incomingLoans]);
-  const myLoans = useMemo(() => (session ? loans.filter((l) => l.borrower_id === session.id) : []), [loans, session]);
+  const incomingFinished = useMemo(() => incomingLoans.filter((l) => ["returned", "rejected"].includes(l.status) && !l.hidden_by_owner), [incomingLoans]);
+  const myLoans = useMemo(() => (session ? loans.filter((l) => l.borrower_id === session.id && !l.hidden_by_borrower) : []), [loans, session]);
   const currentlyReading = useMemo(() => {
     if (!session) return [];
     const mine = loans.filter((l) => l.borrower_id === session.id && l.status === "active");
@@ -997,7 +1003,7 @@ export default function App() {
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
                             <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
-                            <Btn variant="danger" onClick={() => deleteLoan(l.id)}>{t.delete}</Btn>
+                            <Btn variant="danger" onClick={() => hideLoanForBorrower(l.id)}>{t.delete}</Btn>
                           </div>
                         </div>
                       </Card>
@@ -1041,7 +1047,7 @@ export default function App() {
                             </div>
                             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
                               <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
-                              <Btn variant="danger" onClick={() => deleteLoan(l.id)}>{t.delete}</Btn>
+                              <Btn variant="danger" onClick={() => hideLoanForOwner(l.id)}>{t.delete}</Btn>
                             </div>
                           </div>
                         </Card>
