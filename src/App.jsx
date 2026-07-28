@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "./supabaseClient";
+import {
+  Flower2,
+  Sparkles,
+  Crown,
+  Users,
+  BookOpen,
+  Trash2,
+  LogOut,
+  RefreshCw,
+} from "lucide-react";
 
 const GENRES = ["Fiksi", "Non-Fiksi", "Sejarah", "Sains", "Biografi", "Anak", "Bisnis", "Puisi", "Self Improvement", "Lainnya"];
 
@@ -89,6 +99,7 @@ const T = {
     pending: "Menunggu Persetujuan",
     approved: "Disetujui",
     active: "Sedang Dibaca",
+    currentlyBorrowedStatus: "Sedang Dipinjamkan",
     returned: "Sudah Dikembalikan",
     rejectedStatus: "Ditolak",
     addMember: "Tambah Member",
@@ -170,6 +181,7 @@ const T = {
     pending: "Awaiting Approval",
     approved: "Approved",
     active: "Currently Reading",
+    currentlyBorrowedStatus: "Currently Borrowed",
     returned: "Returned",
     rejectedStatus: "Rejected",
     addMember: "Add Member",
@@ -266,7 +278,11 @@ export default function App() {
   const [books, setBooks] = useState([]);
   const [loans, setLoans] = useState([]);
 
-  const [tab, setTab] = useState("katalog");
+  const [tab, setTabState] = useState("katalog");
+  const setTab = (t) => {
+    setTabState(t);
+    sessionStorage.setItem("rakcantik_tab", t);
+  };
   const [err, setErr] = useState("");
 
   // login form state
@@ -293,6 +309,8 @@ export default function App() {
         try {
           setSession(JSON.parse(saved));
           setScreen("app");
+          const savedTab = sessionStorage.getItem("rakcantik_tab");
+          if (savedTab) setTab(savedTab);
         } catch (e) {}
       }
       await fetchAll();
@@ -349,6 +367,7 @@ export default function App() {
   const logout = () => {
     setSession(null);
     sessionStorage.removeItem("rakcantik_session");
+    sessionStorage.removeItem("rakcantik_tab");
     setScreen("welcome");
     setInputName("");
     setInputCode("");
@@ -674,32 +693,39 @@ export default function App() {
   }
 
   if (!session || screen !== "app") {
+    const corner = { position: "absolute", opacity: 0.18, color: "#C6789A" };
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, position: "relative" }}>
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, position: "relative", overflow: "hidden" }}>
+        <Flower2 size={40} style={{ ...corner, top: 28, left: 28 }} />
+        <Flower2 size={30} style={{ ...corner, top: 40, right: 40 }} />
+        <Flower2 size={26} style={{ ...corner, bottom: 40, left: 48 }} />
+        <Flower2 size={36} style={{ ...corner, bottom: 30, right: 60 }} />
         <div style={{ position: "absolute", top: 20, right: 20 }}>
           <LangToggle />
         </div>
         <div
           style={{
             width: 64, height: 64, borderRadius: 16, background: "linear-gradient(135deg,#F6C6DC,#E8B9E6)",
-            display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16, fontSize: 28,
+            display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16,
           }}
         >
-          🌸
+          <Flower2 size={30} color="#6B3B54" />
         </div>
         <h1 style={{ fontFamily: "'Bitter', serif", fontWeight: 800, fontSize: 30, color: "#6B3B54", margin: 0, display: "flex", alignItems: "center", gap: 8 }}>
           {t.appName}
         </h1>
-        <p style={{ color: "#8A6D7D", fontSize: 14, textAlign: "center", maxWidth: 340, marginTop: 8 }}>{t.tagline} ✨</p>
+        <p style={{ color: "#8A6D7D", fontSize: 14, textAlign: "center", maxWidth: 340, marginTop: 8, display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}>
+          {t.tagline} <Sparkles size={13} />
+        </p>
 
-        <Card style={{ width: 360, maxWidth: "100%", marginTop: 24 }}>
+        <Card style={{ width: 360, maxWidth: "100%", marginTop: 24, position: "relative", zIndex: 1 }}>
           {screen === "welcome" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <Btn onClick={() => setScreen("login-member")} style={{ width: "100%", justifyContent: "center", padding: "12px" }}>
-                🌸 {t.loginMember}
+                <Flower2 size={15} /> {t.loginMember}
               </Btn>
               <Btn variant="ghost" onClick={() => setScreen("login-owner")} style={{ width: "100%", justifyContent: "center", padding: "12px" }}>
-                ✨ {t.loginOwner}
+                <Sparkles size={15} /> {t.loginOwner}
               </Btn>
             </div>
           )}
@@ -747,13 +773,15 @@ export default function App() {
     <div style={{ minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#4A3B45", paddingBottom: 60 }}>
       <div style={{ padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: "linear-gradient(135deg,#F6C6DC,#E8B9E6)", display: "flex", alignItems: "center", justifyContent: "center" }}>🌸</div>
+          <div style={{ width: 32, height: 32, borderRadius: 9, background: "linear-gradient(135deg,#F6C6DC,#E8B9E6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Flower2 size={16} color="#6B3B54" />
+          </div>
           <span style={{ fontFamily: "'Bitter', serif", fontWeight: 800, fontSize: 18, color: "#6B3B54" }}>{t.appName}</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <LangToggle />
           <span style={{ fontSize: 12, background: isQueen ? "#F0C419" : session.role === "owner" ? "#F6C6DC" : "#DFF3F5", color: "#6B3B54", padding: "4px 10px", borderRadius: 20, fontWeight: 700 }}>
-            {isQueen ? "👑 Queen" : session.role === "owner" ? t.owner : t.member}
+            {isQueen ? (<><Crown size={12} style={{ display: "inline", verticalAlign: -1 }} /> Queen</>) : session.role === "owner" ? t.owner : t.member}
           </span>
           <span style={{ fontSize: 13.5, fontWeight: 600 }}>{session.name}</span>
           {session.role !== "member" && (
@@ -787,7 +815,7 @@ export default function App() {
         {tab === "katalog" && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
-              <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 21, color: "#6B3B54", margin: 0 }}>🌷 {t.katalogBuku}</h2>
+              <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 21, color: "#6B3B54", margin: 0, display: "flex", alignItems: "center", gap: 8 }}><BookOpen size={19} /> {t.katalogBuku}</h2>
               {canManage && <Btn onClick={openAddBook}>+ {t.addBook}</Btn>}
             </div>
 
@@ -841,7 +869,7 @@ export default function App() {
                         </div>
                       ) : isQueen ? (
                         <Btn variant="danger" onClick={() => deleteBook(b.id)} style={{ width: "100%", justifyContent: "center" }}>
-                          👑 {t.delete}
+                          <Crown size={13} /> {t.delete}
                         </Btn>
                       ) : (
                         <Btn onClick={() => { setRequestModalBook(b); setReqStart(todayISO()); setReqEnd(todayISO()); setReqErr(""); }} disabled={status !== "available"} style={{ width: "100%", justifyContent: "center" }}>
@@ -955,7 +983,9 @@ export default function App() {
                             )}
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>
+                              {amOwner ? t.currentlyBorrowedStatus : (t[l.status] || l.status)}
+                            </span>
                             {amOwner && (
                               <div style={{ display: "flex", gap: 6 }}>
                                 {l.status === "active" && <Btn variant="ghost" onClick={() => { setReturnModal(l); setProofFile(null); }}>{t.markReturned}</Btn>}
@@ -1063,7 +1093,7 @@ export default function App() {
         {tab === "members" && canManage && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 21, color: "#6B3B54", margin: 0 }}>👥 {t.members}</h2>
+              <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 21, color: "#6B3B54", margin: 0, display: "flex", alignItems: "center", gap: 8 }}><Users size={19} /> {t.members}</h2>
               <Btn onClick={() => setShowAddMember(true)}>+ {t.addMember}</Btn>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1076,7 +1106,7 @@ export default function App() {
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: m.role === "queen" ? "#F0C419" : m.role === "owner" ? "#F6C6DC" : "#DFF3F5", color: "#6B3B54" }}>
-                        {m.role === "queen" ? "👑 Queen" : m.role === "owner" ? t.owner : t.member}
+                        {m.role === "queen" ? (<><Crown size={12} style={{ display: "inline", verticalAlign: -1 }} /> Queen</>) : m.role === "owner" ? t.owner : t.member}
                       </span>
                       {isQueen && m.role !== "queen" && (
                         <Btn variant="ghost" onClick={() => setNewOwnerCode({ name: m.name, code: m.access_code })}>
@@ -1085,7 +1115,7 @@ export default function App() {
                       )}
                       {isQueen && m.role !== "queen" && (
                         <Btn variant="danger" onClick={() => deleteMember(m.id)}>
-                          🗑
+                          <Trash2 size={13} />
                         </Btn>
                       )}
                     </div>
@@ -1097,7 +1127,9 @@ export default function App() {
         )}
       </div>
 
-      <div style={{ textAlign: "center", padding: "20px", color: "#B79AA8", fontSize: 12 }}>🌸 {t.footer} 🌸</div>
+      <div style={{ textAlign: "center", padding: "20px", color: "#B79AA8", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+        <Flower2 size={12} /> {t.footer} <Flower2 size={12} />
+      </div>
 
       {/* Add/Edit Book Modal */}
       {showAddBook && (
@@ -1215,8 +1247,8 @@ export default function App() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 16 }} onClick={() => setNewOwnerCode(null)}>
           <div onClick={(e) => e.stopPropagation()} style={{ width: 360, maxWidth: "100%" }}>
             <Card>
-              <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, marginBottom: 10, color: "#6B3B54" }}>
-                🌸 {lang === "id" ? "Owner baru ditambahkan!" : "New owner added!"}
+              <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, marginBottom: 10, color: "#6B3B54", display: "flex", alignItems: "center", gap: 8 }}>
+                <Flower2 size={16} /> {lang === "id" ? "Owner baru ditambahkan!" : "New owner added!"}
               </div>
               <p style={{ fontSize: 13.5, color: "#8A6D7D", marginBottom: 10 }}>
                 {lang === "id"
