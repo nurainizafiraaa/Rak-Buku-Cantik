@@ -509,6 +509,12 @@ export default function App() {
     setUploadingProof(false);
   };
 
+  const deleteLoan = async (id) => {
+    const { error } = await supabase.from("loans").delete().eq("id", id);
+    if (error) return setErr("Gagal menghapus riwayat: " + error.message);
+    setLoans((prev) => prev.filter((l) => l.id !== id));
+  };
+
   const respondLoan = async (loan, action) => {
     let update = {};
     if (action === "approve") update = { status: "approved" };
@@ -989,7 +995,10 @@ export default function App() {
                               </div>
                             )}
                           </div>
-                          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color, alignSelf: "flex-start" }}>{t[l.status] || l.status}</span>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
+                            <Btn variant="danger" onClick={() => deleteLoan(l.id)}>{t.delete}</Btn>
+                          </div>
                         </div>
                       </Card>
                     );
@@ -1030,7 +1039,10 @@ export default function App() {
                                 </div>
                               )}
                             </div>
-                            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color, alignSelf: "flex-start" }}>{t[l.status] || l.status}</span>
+                            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
+                              <Btn variant="danger" onClick={() => deleteLoan(l.id)}>{t.delete}</Btn>
+                            </div>
                           </div>
                         </Card>
                       );
@@ -1254,7 +1266,7 @@ export default function App() {
                 <input type="file" accept="image/*" onChange={(e) => setProofFile(e.target.files?.[0] || null)} style={inputStyle} />
               </Field>
               <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                <Btn onClick={confirmActivate} disabled={uploadingProof}>{uploadingProof ? t.uploading : t.submit}</Btn>
+                <Btn onClick={confirmActivate} disabled={uploadingProof}>{uploadingProof ? t.uploading : t.markHandover}</Btn>
                 <Btn variant="ghost" onClick={() => setActivateModal(null)} disabled={uploadingProof}>{t.cancel}</Btn>
               </div>
             </Card>
@@ -1275,7 +1287,7 @@ export default function App() {
                 <input type="file" accept="image/*" onChange={(e) => setProofFile(e.target.files?.[0] || null)} style={inputStyle} />
               </Field>
               <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                <Btn onClick={confirmReturn} disabled={uploadingProof}>{uploadingProof ? t.uploading : t.submit}</Btn>
+                <Btn onClick={confirmReturn} disabled={uploadingProof}>{uploadingProof ? t.uploading : t.markReturned}</Btn>
                 <Btn variant="ghost" onClick={() => setReturnModal(null)} disabled={uploadingProof}>{t.cancel}</Btn>
               </div>
             </Card>
