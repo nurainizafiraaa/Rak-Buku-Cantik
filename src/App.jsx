@@ -1810,4 +1810,63 @@ export default function App() {
               </div>
 
               <div
-  
+                style={{
+                  background: readingStats.thisMonthCount > 0 ? "#FFF1D6" : "#F3EEF1",
+                  borderRadius: 10,
+                  padding: "10px 14px",
+                  fontSize: 12.5,
+                  color: "#6B3B54",
+                  marginBottom: 20,
+                  textAlign: "center",
+                }}
+              >
+                {readingStats.thisMonthCount === 0
+                  ? lang === "id"
+                    ? "Belum ada buku selesai bulan ini — ayo mulai baca! 🌱"
+                    : "No finished books this month yet — time to start reading! 🌱"
+                  : readingStats.thisMonthCount >= 3
+                  ? lang === "id"
+                    ? `Keren! ${readingStats.thisMonthCount} buku selesai bulan ini. Terus semangat! ✨`
+                    : `Amazing! ${readingStats.thisMonthCount} books finished this month. Keep it up! ✨`
+                  : lang === "id"
+                  ? `${readingStats.thisMonthCount} buku selesai bulan ini. Sedikit lagi! 🌸`
+                  : `${readingStats.thisMonthCount} book(s) finished this month. Keep going! 🌸`}
+              </div>
+
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: "#8A6D7D", marginBottom: 10 }}>
+                {lang === "id" ? "12 Bulan Terakhir" : "Last 12 Months"}
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 90, marginBottom: 6 }}>
+                {readingStats.months.map((m) => (
+                  <div key={m.key} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%" }}>
+                    <div
+                      title={`${m.count}`}
+                      style={{
+                        width: "100%",
+                        maxWidth: 22,
+                        height: `${Math.max(4, (m.count / readingStats.maxCount) * 70)}px`,
+                        background: m.count > 0 ? "linear-gradient(180deg,#F6C6DC,#C6789A)" : "#EDE4E8",
+                        borderRadius: 4,
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 4 }}>
+                {readingStats.months.map((m) => (
+                  <div key={m.key} style={{ flex: 1, textAlign: "center", fontSize: 9, color: "#B79AA8" }}>
+                    {(lang === "id" ? MONTH_NAMES_ID : MONTH_NAMES_EN)[m.monthIdx]}
+                  </div>
+                ))}
+              </div>
+
+              <Btn variant="ghost" onClick={() => setShowStats(false)} style={{ width: "100%", justifyContent: "center", marginTop: 20 }}>
+                {t.cancel}
+              </Btn>
+            </Card>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
