@@ -314,10 +314,10 @@ export default function App() {
     setLoginErr("");
     if (!inputName.trim()) return setLoginErr(t.errFillName);
     const owner = members.find(
-      (m) => m.name.toLowerCase() === inputName.trim().toLowerCase() && m.role === "owner" && m.access_code === inputCode
+      (m) => m.name.toLowerCase() === inputName.trim().toLowerCase() && (m.role === "owner" || m.role === "queen") && m.access_code === inputCode
     );
     if (!owner) return setLoginErr(t.errWrongCode);
-    const s = { id: owner.id, name: owner.name, role: "owner" };
+    const s = { id: owner.id, name: owner.name, role: owner.role };
     setSession(s);
     localStorage.setItem("rakcantik_session", JSON.stringify(s));
     setScreen("app");
@@ -392,8 +392,11 @@ export default function App() {
   };
 
   const deleteBook = async (id) => {
-    await supabase.from("books").delete().eq("id", id);
+    await supabase.from("loans").delete().eq("book_id", id);
+    const { error } = await supabase.from("books").delete().eq("id", id);
+    if (error) return setErr("Gagal menghapus buku: " + error.message);
     setBooks((prev) => prev.filter((b) => b.id !== id));
+    setLoans((prev) => prev.filter((l) => l.book_id !== id));
   };
 
   // ---- Loans ----
@@ -451,13 +454,35 @@ export default function App() {
   const blankMember = { name: "", email: "", wa_contact: "", role: "member", access_code: "" };
   const [memberForm, setMemberForm] = useState(blankMember);
 
+  const [newOwnerCode, setNewOwnerCode] = useState(null);
+
+  const deleteMember = async (id) => {
+    // clean up related loans & books first to avoid foreign key errors
+    const theirBooks = books.filter((b) => b.owner_id === id).map((b) => b.id);
+    if (theirBooks.length) await supabase.from("loans").delete().in("book_id", theirBooks);
+    await supabase.from("loans").delete().eq("borrower_id", id);
+    await supabase.from("books").delete().eq("owner_id", id);
+    const { error } = await supabase.from("members").delete().eq("id", id);
+    if (error) return setErr("Gagal menghapus member: " + error.message);
+    setMembers((prev) => prev.filter((m) => m.id !== id));
+    setBooks((prev) => prev.filter((b) => b.owner_id !== id));
+    setLoans((prev) => prev.filter((l) => l.borrower_id !== id && !theirBooks.includes(l.book_id)));
+  };
+
   const saveMember = async () => {
     if (!memberForm.name.trim()) return;
     const payload = { ...memberForm };
-    if (payload.role !== "owner") payload.access_code = null;
-    else if (!payload.access_code) payload.access_code = genCode("WG-");
+    if (payload.role !== "owner") {
+      payload.access_code = null;
+    } else if (!payload.access_code.trim()) {
+      payload.access_code = genCode("WG-");
+    }
     const { data, error } = await supabase.from("members").insert(payload).select().single();
-    if (!error && data) setMembers((prev) => [data, ...prev]);
+    if (error) return setErr("Gagal menambah member: " + error.message);
+    if (data) {
+      setMembers((prev) => [data, ...prev]);
+      if (data.role === "owner") setNewOwnerCode({ name: data.name, code: data.access_code });
+    }
     setShowAddMember(false);
     setMemberForm(blankMember);
   };
@@ -499,6 +524,8 @@ export default function App() {
   const availableBooksForLoan = useMemo(() => books.filter((b) => deriveBookStatus(b) === "available" && b.owner_id !== session?.id), [books, loans, session]);
 
   const isOwnerOf = (book) => session && book.owner_id === session.id;
+  const isQueen = session && session.role === "queen";
+  const canManage = session && (session.role === "owner" || session.role === "queen");
 
   const LangToggle = () => (
     <div style={{ display: "flex", gap: 4, background: "#fff", borderRadius: 20, padding: 3, border: "1px solid #F0DCE6" }}>
@@ -586,7 +613,7 @@ export default function App() {
   }
 
   const tabs =
-    session.role === "owner"
+    canManage
       ? [
           { id: "katalog", label: t.katalog },
           { id: "peminjaman", label: t.peminjaman },
@@ -606,8 +633,8 @@ export default function App() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <LangToggle />
-          <span style={{ fontSize: 12, background: session.role === "owner" ? "#F6C6DC" : "#DFF3F5", color: "#6B3B54", padding: "4px 10px", borderRadius: 20, fontWeight: 700 }}>
-            {session.role === "owner" ? t.owner : t.member}
+          <span style={{ fontSize: 12, background: isQueen ? "#F0C419" : session.role === "owner" ? "#F6C6DC" : "#DFF3F5", color: "#6B3B54", padding: "4px 10px", borderRadius: 20, fontWeight: 700 }}>
+            {isQueen ? "👑 Queen" : session.role === "owner" ? t.owner : t.member}
           </span>
           <span style={{ fontSize: 13.5, fontWeight: 600 }}>{session.name}</span>
           <Btn variant="ghost" onClick={logout}>{t.logout}</Btn>
@@ -637,7 +664,7 @@ export default function App() {
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
               <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 21, color: "#6B3B54", margin: 0 }}>🌷 {t.katalogBuku}</h2>
-              {session.role === "owner" && <Btn onClick={openAddBook}>+ {t.addBook}</Btn>}
+              {canManage && <Btn onClick={openAddBook}>+ {t.addBook}</Btn>}
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
@@ -688,6 +715,10 @@ export default function App() {
                           <Btn variant="ghost" onClick={() => openEditBook(b)} style={{ flex: 1, justifyContent: "center" }}>{t.edit}</Btn>
                           <Btn variant="danger" onClick={() => deleteBook(b.id)} style={{ flex: 1, justifyContent: "center" }}>{t.delete}</Btn>
                         </div>
+                      ) : isQueen ? (
+                        <Btn variant="danger" onClick={() => deleteBook(b.id)} style={{ width: "100%", justifyContent: "center" }}>
+                          👑 {t.delete}
+                        </Btn>
                       ) : (
                         <Btn onClick={() => { setRequestModalBook(b); setReqStart(todayISO()); setReqEnd(todayISO()); setReqErr(""); }} disabled={status !== "available"} style={{ width: "100%", justifyContent: "center" }}>
                           {t.borrow}
@@ -767,7 +798,7 @@ export default function App() {
           </div>
         )}
 
-        {tab === "members" && session.role === "owner" && (
+        {tab === "members" && canManage && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 21, color: "#6B3B54", margin: 0 }}>👥 {t.members}</h2>
@@ -781,9 +812,21 @@ export default function App() {
                       <div style={{ fontWeight: 700 }}>{m.name}</div>
                       <div style={{ fontSize: 12, color: "#8A6D7D" }}>{m.email || "-"} {m.wa_contact ? `· WA: ${m.wa_contact}` : ""}</div>
                     </div>
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: m.role === "owner" ? "#F6C6DC" : "#DFF3F5", color: "#6B3B54" }}>
-                      {m.role === "owner" ? t.owner : t.member}
-                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: m.role === "queen" ? "#F0C419" : m.role === "owner" ? "#F6C6DC" : "#DFF3F5", color: "#6B3B54" }}>
+                        {m.role === "queen" ? "👑 Queen" : m.role === "owner" ? t.owner : t.member}
+                      </span>
+                      {(m.role === "owner" || m.role === "queen") && canManage && (
+                        <Btn variant="ghost" onClick={() => setNewOwnerCode({ name: m.name, code: m.access_code })}>
+                          {lang === "id" ? "Lihat Kode" : "View Code"}
+                        </Btn>
+                      )}
+                      {isQueen && m.role !== "queen" && (
+                        <Btn variant="danger" onClick={() => deleteMember(m.id)}>
+                          🗑
+                        </Btn>
+                      )}
+                    </div>
                   </div>
                 </Card>
               ))}
@@ -882,14 +925,49 @@ export default function App() {
                 </select>
               </Field>
               {memberForm.role === "owner" && (
-                <div style={{ fontSize: 12, color: "#8A6D7D", marginBottom: 10 }}>
-                  Kode akses akan dibuat otomatis dan ditampilkan setelah disimpan.
-                </div>
+                <Field label={lang === "id" ? "Kode Akses (buat sendiri)" : "Access Code (create your own)"}>
+                  <input
+                    style={inputStyle}
+                    value={memberForm.access_code}
+                    onChange={(e) => setMemberForm({ ...memberForm, access_code: e.target.value })}
+                    placeholder={lang === "id" ? "Contoh: bungaJap25" : "e.g. bungaJap25"}
+                  />
+                  <div style={{ fontSize: 11.5, color: "#8A6D7D", marginTop: 5 }}>
+                    {lang === "id"
+                      ? "Kosongkan kalau mau dibuatkan otomatis."
+                      : "Leave blank to auto-generate one."}
+                  </div>
+                </Field>
               )}
               <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
                 <Btn onClick={saveMember}>{t.save}</Btn>
                 <Btn variant="ghost" onClick={() => setShowAddMember(false)}>{t.cancel}</Btn>
               </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* New owner code reveal modal */}
+      {newOwnerCode && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 16 }} onClick={() => setNewOwnerCode(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: 360, maxWidth: "100%" }}>
+            <Card>
+              <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, marginBottom: 10, color: "#6B3B54" }}>
+                🌸 {lang === "id" ? "Owner baru ditambahkan!" : "New owner added!"}
+              </div>
+              <p style={{ fontSize: 13.5, color: "#8A6D7D", marginBottom: 10 }}>
+                {lang === "id"
+                  ? `Kode akses untuk ${newOwnerCode.name} adalah:`
+                  : `Access code for ${newOwnerCode.name} is:`}
+              </p>
+              <div style={{ background: "#FFF1D6", borderRadius: 8, padding: "12px 16px", textAlign: "center", fontFamily: "monospace", fontSize: 18, fontWeight: 700, color: "#6B3B54", marginBottom: 14, letterSpacing: 1 }}>
+                {newOwnerCode.code}
+              </div>
+              <p style={{ fontSize: 12, color: "#B79AA8", marginBottom: 14 }}>
+                {lang === "id" ? "Catat/kirim kode ini sekarang — tidak akan ditampilkan lagi." : "Save/send this code now — it won't be shown again."}
+              </p>
+              <Btn onClick={() => setNewOwnerCode(null)} style={{ width: "100%", justifyContent: "center" }}>OK</Btn>
             </Card>
           </div>
         </div>
