@@ -1398,8 +1398,8 @@ export default function App() {
               >
                 {readingStats.thisMonthCount === 0
                   ? lang === "id"
-                    ? "Belum ada buku selesai bulan ini — ayo mulai baca! 🌱"
-                    : "No finished books this month yet — time to start reading! 🌱"
+                    ? "Belum ada buku selesai bulan ini, yuk luangin waktumu buat lebih sering membaca! 🌱"
+                    : "No finished books this month yet, time to start reading! 🌱"
                   : readingStats.thisMonthCount >= 3
                   ? lang === "id"
                     ? `Keren! ${readingStats.thisMonthCount} buku selesai bulan ini. Terus semangat! ✨`
