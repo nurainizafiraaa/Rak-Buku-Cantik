@@ -700,10 +700,10 @@ export default function App() {
 
   const readingStats = useMemo(() => {
     if (!session) return null;
-    const allBorrowed = loans.filter((l) => l.borrower_id === session.id);
+    const allBorrowed = loans.filter((l) => l.borrower_id === session.id && !l.hidden_by_borrower);
     const finished = allBorrowed.filter((l) => l.status === "returned" && l.actual_return_date);
     const totalRead = finished.length;
-    const totalBorrowedEver = allBorrowed.filter((l) => l.status !== "rejected").length;
+    const totalBorrowedEver = allBorrowed.filter((l) => l.status === "active" || l.status === "returned").length;
 
     const now = new Date();
     const months = [];
@@ -857,7 +857,9 @@ export default function App() {
           {screen === "request-form" && !requestSubmitted && (
             <div>
               <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, marginBottom: 4, color: "#6B3B54" }}>
-                {lang === "id" ? "Ajukan Akun" : "Request Access"} — {requestRole === "owner" ? t.owner : t.member}
+                {lang === "id"
+                  ? `Daftar sebagai ${requestRole === "owner" ? "Owner" : "Member"}`
+                  : `Register as ${requestRole === "owner" ? "Owner" : "Member"}`}
               </div>
               <p style={{ fontSize: 12, color: "#8A6D7D", marginBottom: 14 }}>
                 {lang === "id" ? "Permintaan kamu perlu disetujui Queen sebelum bisa login." : "Your request needs Queen's approval before you can log in."}
