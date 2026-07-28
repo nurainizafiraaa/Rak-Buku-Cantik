@@ -1118,7 +1118,11 @@ export default function App() {
             </div>
             <select style={{ ...inputStyle, width: "auto", minWidth: 190, marginBottom: 18 }} value={loansView} onChange={(e) => setLoansView(e.target.value)}>
               <option value="active">{t.sectionReading}</option>
-              {canManage && <option value="incoming">{t.incoming}</option>}
+              {canManage && (
+                <option value="incoming">
+                  {t.incoming}{incomingAwaiting.length > 0 ? ` (${incomingAwaiting.length})` : ""}
+                </option>
+              )}
               <option value="pending">{t.sectionWaiting}</option>
               {canManage && <option value="finished">{t.returnedBooksSection}</option>}
               <option value="history">{t.sectionHistory}</option>
@@ -1393,6 +1397,11 @@ export default function App() {
         {tabs.map((tb) => {
           const Icon = tb.icon;
           const activeTab = tab === tb.id;
+          const pendingMembersCount = members.filter((m) => m.status === "pending").length;
+          const showBadge =
+            (tb.id === "peminjaman" && canManage && incomingAwaiting.length > 0) ||
+            (tb.id === "members" && isQueen && pendingMembersCount > 0);
+          const badgeCount = tb.id === "members" ? pendingMembersCount : incomingAwaiting.length;
           return (
             <button
               key={tb.id}
@@ -1402,7 +1411,18 @@ export default function App() {
                 cursor: "pointer", color: activeTab ? "#C6789A" : "#B79AA8", padding: "4px 14px", borderRadius: 12,
               }}
             >
-              <Icon size={20} />
+              <div style={{ position: "relative" }}>
+                <Icon size={20} />
+                {showBadge && (
+                  <span style={{
+                    position: "absolute", top: -4, right: -6, minWidth: 15, height: 15, borderRadius: 20,
+                    background: "#D9534F", color: "#fff", fontSize: 9.5, fontWeight: 700,
+                    display: "flex", alignItems: "center", justifyContent: "center", padding: "0 3px",
+                  }}>
+                    {badgeCount}
+                  </span>
+                )}
+              </div>
               <span style={{ fontSize: 10.5, fontWeight: 700 }}>{tb.label}</span>
             </button>
           );
@@ -1834,11 +1854,11 @@ export default function App() {
               >
                 {readingStats.thisMonthCount === 0
                   ? lang === "id"
-                    ? "Belum ada buku selesai bulan ini, yuk lebih rutin lagi bacanya! 🌱"
+                    ? "Belum ada buku selesai bulan ini, ayo lebih giat membaca! 🌱"
                     : "No finished books this month yet, it's time to start reading! 🌱"
                   : readingStats.thisMonthCount >= 3
                   ? lang === "id"
-                    ? `Keren! ${readingStats.thisMonthCount} buku selesai bulan ini. Terus semangat ya! ✨`
+                    ? `Keren! ${readingStats.thisMonthCount} buku selesai bulan ini. Terus semangat! ✨`
                     : `Amazing! ${readingStats.thisMonthCount} books finished this month. Keep it up! ✨`
                   : lang === "id"
                   ? `${readingStats.thisMonthCount} buku selesai bulan ini. Sedikit lagi! 🌸`
