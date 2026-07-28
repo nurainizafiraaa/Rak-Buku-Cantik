@@ -560,6 +560,7 @@ export default function App() {
 
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [detailBook, setDetailBook] = useState(null);
   const [profileForm, setProfileForm] = useState({ name: "", email: "", wa_contact: "", access_code: "" });
   const [profileErr, setProfileErr] = useState("");
 
@@ -878,35 +879,28 @@ export default function App() {
                 {filteredBooks.map((b) => {
                   const status = deriveBookStatus(b);
                   return (
-                    <div key={b.id} style={{ background: pastelFor(b.id), borderRadius: 12, padding: 16, position: "relative" }}>
+                    <div
+                      key={b.id}
+                      onClick={() => setDetailBook(b)}
+                      style={{ background: pastelFor(b.id), borderRadius: 12, padding: 16, position: "relative", cursor: "pointer" }}
+                    >
                       <span style={{
                         position: "absolute", top: 12, right: 12, fontSize: 10.5, fontWeight: 700, padding: "3px 9px", borderRadius: 20,
                         background: status === "available" ? "#E6F4EA" : "#FBE0D6", color: status === "available" ? "#2F6B3F" : "#A6542D",
                       }}>
                         {status === "available" ? t.available : t.reading}
                       </span>
-                      <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 15.5, paddingRight: 70, marginBottom: 2, color: "#5A3B4A" }}>{b.title}</div>
+                      {b.cover_url && (
+                        <img src={b.cover_url} alt={b.title} style={{ width: "100%", height: 110, objectFit: "cover", borderRadius: 8, marginBottom: 10 }} />
+                      )}
+                      <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 15.5, paddingRight: b.cover_url ? 0 : 70, marginBottom: 2, color: "#5A3B4A" }}>{b.title}</div>
                       <div style={{ fontSize: 12.5, color: "#8A6D7D", marginBottom: 8 }}>{b.author}</div>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
                         <span style={{ fontSize: 10.5, background: "rgba(255,255,255,0.7)", padding: "2px 8px", borderRadius: 20 }}>{b.genre}</span>
                         <span style={{ fontSize: 10.5, background: "rgba(255,255,255,0.7)", padding: "2px 8px", borderRadius: 20 }}>{b.condition}</span>
                         {b.language && <span style={{ fontSize: 10.5, background: "rgba(255,255,255,0.7)", padding: "2px 8px", borderRadius: 20 }}>{b.language}</span>}
                       </div>
-                      <div style={{ fontSize: 11.5, color: "#8A6D7D", marginBottom: 12 }}>{t.ownerLabel}: {memberName(b.owner_id)}</div>
-                      {isOwnerOf(b) ? (
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <Btn variant="ghost" onClick={() => openEditBook(b)} style={{ flex: 1, justifyContent: "center" }}>{t.edit}</Btn>
-                          <Btn variant="danger" onClick={() => deleteBook(b.id)} style={{ flex: 1, justifyContent: "center" }}>{t.delete}</Btn>
-                        </div>
-                      ) : isQueen ? (
-                        <Btn variant="danger" onClick={() => deleteBook(b.id)} style={{ width: "100%", justifyContent: "center" }}>
-                          <Crown size={13} /> {t.delete}
-                        </Btn>
-                      ) : (
-                        <Btn onClick={() => { setRequestModalBook(b); setReqStart(todayISO()); setReqEnd(todayISO()); setReqErr(""); }} disabled={status !== "available"} style={{ width: "100%", justifyContent: "center" }}>
-                          {t.borrow}
-                        </Btn>
-                      )}
+                      <div style={{ fontSize: 11.5, color: "#8A6D7D" }}>{t.ownerLabel}: {memberName(b.owner_id)}</div>
                     </div>
                   );
                 })}
@@ -1364,6 +1358,100 @@ export default function App() {
         </div>
       )}
 
+      {/* Book detail modal */}
+      {detailBook && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55, padding: 16 }} onClick={() => setDetailBook(null)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: 400, maxWidth: "100%" }}>
+            <Card>
+              {detailBook.cover_url ? (
+                <img src={detailBook.cover_url} alt={detailBook.title} style={{ width: "100%", height: 200, objectFit: "cover", borderRadius: 10, marginBottom: 14 }} />
+              ) : (
+                <div style={{ width: "100%", height: 140, borderRadius: 10, marginBottom: 14, background: pastelFor(detailBook.id), display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <BookOpen size={34} color="#8A6D7D" />
+                </div>
+              )}
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 4 }}>
+                <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 18, color: "#5A3B4A" }}>{detailBook.title}</div>
+                <span style={{
+                  fontSize: 10.5, fontWeight: 700, padding: "3px 9px", borderRadius: 20, whiteSpace: "nowrap",
+                  background: deriveBookStatus(detailBook) === "available" ? "#E6F4EA" : "#FBE0D6",
+                  color: deriveBookStatus(detailBook) === "available" ? "#2F6B3F" : "#A6542D",
+                }}>
+                  {deriveBookStatus(detailBook) === "available" ? t.available : t.reading}
+                </span>
+              </div>
+              <div style={{ fontSize: 13, color: "#8A6D7D", marginBottom: 12 }}>{detailBook.author}</div>
+
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+                <span style={{ fontSize: 11, background: "#F3EEF1", padding: "3px 10px", borderRadius: 20, color: "#6B3B54" }}>{detailBook.genre}</span>
+                <span style={{ fontSize: 11, background: "#F3EEF1", padding: "3px 10px", borderRadius: 20, color: "#6B3B54" }}>{detailBook.condition}</span>
+                {detailBook.language && <span style={{ fontSize: 11, background: "#F3EEF1", padding: "3px 10px", borderRadius: 20, color: "#6B3B54" }}>{detailBook.language}</span>}
+              </div>
+
+              <div style={{ fontSize: 12.5, color: "#8A6D7D", marginBottom: 6 }}>{t.ownerLabel}: <b>{memberName(detailBook.owner_id)}</b></div>
+              {detailBook.notes && <div style={{ fontSize: 12.5, color: "#8A6D7D", marginBottom: 14, fontStyle: "italic" }}>"{detailBook.notes}"</div>}
+
+              <div style={{ marginTop: 14 }}>
+                {isOwnerOf(detailBook) ? (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <Btn
+                      variant="ghost"
+                      onClick={() => {
+                        openEditBook(detailBook);
+                        setDetailBook(null);
+                      }}
+                      style={{ flex: 1, justifyContent: "center" }}
+                    >
+                      {t.edit}
+                    </Btn>
+                    <Btn
+                      variant="danger"
+                      onClick={() => {
+                        deleteBook(detailBook.id);
+                        setDetailBook(null);
+                      }}
+                      style={{ flex: 1, justifyContent: "center" }}
+                    >
+                      {t.delete}
+                    </Btn>
+                  </div>
+                ) : isQueen ? (
+                  <Btn
+                    variant="danger"
+                    onClick={() => {
+                      deleteBook(detailBook.id);
+                      setDetailBook(null);
+                    }}
+                    style={{ width: "100%", justifyContent: "center" }}
+                  >
+                    <Crown size={13} /> {t.delete}
+                  </Btn>
+                ) : (
+                  <Btn
+                    onClick={() => {
+                      setRequestModalBook(detailBook);
+                      setReqStart(todayISO());
+                      setReqEnd(todayISO());
+                      setReqErr("");
+                      setDetailBook(null);
+                    }}
+                    disabled={deriveBookStatus(detailBook) !== "available"}
+                    style={{ width: "100%", justifyContent: "center" }}
+                  >
+                    {t.borrow}
+                  </Btn>
+                )}
+              </div>
+
+              <Btn variant="ghost" onClick={() => setDetailBook(null)} style={{ width: "100%", justifyContent: "center", marginTop: 8 }}>
+                {t.cancel}
+              </Btn>
+            </Card>
+          </div>
+        </div>
+      )}
+
       {/* Reading stats modal */}
       {showStats && readingStats && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55, padding: 16 }} onClick={() => setShowStats(false)}>
@@ -1398,8 +1486,8 @@ export default function App() {
               >
                 {readingStats.thisMonthCount === 0
                   ? lang === "id"
-                    ? "Belum ada buku selesai bulan ini, yuk luangin waktumu buat lebih sering membaca! 🌱"
-                    : "No finished books this month yet, time to start reading! 🌱"
+                    ? "Belum ada buku selesai bulan ini — ayo mulai baca! 🌱"
+                    : "No finished books this month yet — time to start reading! 🌱"
                   : readingStats.thisMonthCount >= 3
                   ? lang === "id"
                     ? `Keren! ${readingStats.thisMonthCount} buku selesai bulan ini. Terus semangat! ✨`
