@@ -347,14 +347,18 @@ export default function App() {
   };
 
   const saveBook = async () => {
+    setErr("");
     if (!bookForm.title.trim() || !bookForm.author.trim()) return;
+    const cleanForm = { ...bookForm, reading_until: bookForm.reading_until ? bookForm.reading_until : null };
     if (editingBook) {
-      const { data, error } = await supabase.from("books").update(bookForm).eq("id", editingBook.id).select().single();
-      if (!error && data) setBooks((prev) => prev.map((b) => (b.id === data.id ? data : b)));
+      const { data, error } = await supabase.from("books").update(cleanForm).eq("id", editingBook.id).select().single();
+      if (error) return setErr("Gagal menyimpan buku: " + error.message);
+      if (data) setBooks((prev) => prev.map((b) => (b.id === data.id ? data : b)));
     } else {
-      const payload = { ...bookForm, book_code: genCode("BK-"), owner_id: session.id };
+      const payload = { ...cleanForm, book_code: genCode("BK-"), owner_id: session.id };
       const { data, error } = await supabase.from("books").insert(payload).select().single();
-      if (!error && data) setBooks((prev) => [data, ...prev]);
+      if (error) return setErr("Gagal menyimpan buku: " + error.message);
+      if (data) setBooks((prev) => [data, ...prev]);
     }
     setShowAddBook(false);
     setEditingBook(null);
