@@ -41,6 +41,7 @@ const T = {
     katalogBuku: "Katalog Buku",
     searchPlaceholder: "Cari judul atau penulis...",
     allGenre: "Semua Genre",
+    allLanguage: "Semua Bahasa",
     allStatus: "Semua Status",
     startDate: "Tanggal Mulai",
     endDate: "Tanggal Selesai",
@@ -59,7 +60,8 @@ const T = {
     author: "Penulis",
     genre: "Genre",
     condition: "Kondisi",
-    coverUrl: "URL Foto Sampul (opsional)",
+    coverUrl: "Foto Sampul (opsional)",
+    uploading: "Mengunggah foto...",
     bookLanguage: "Bahasa Buku",
     notes: "Catatan",
     status: "Status",
@@ -115,6 +117,7 @@ const T = {
     katalogBuku: "Book Catalog",
     searchPlaceholder: "Search title or author...",
     allGenre: "All Genres",
+    allLanguage: "All Languages",
     allStatus: "All Status",
     startDate: "Start Date",
     endDate: "End Date",
@@ -133,7 +136,8 @@ const T = {
     author: "Author",
     genre: "Genre",
     condition: "Condition",
-    coverUrl: "Cover Photo URL (optional)",
+    coverUrl: "Cover Photo (optional)",
+    uploading: "Uploading photo...",
     bookLanguage: "Book Language",
     notes: "Notes",
     status: "Status",
@@ -334,6 +338,26 @@ export default function App() {
   const blankBook = { title: "", author: "", genre: GENRES[0], condition: "Baik", cover_url: "", notes: "", availability_status: "available", reading_until: "", language: "Indonesia" };
   const [bookForm, setBookForm] = useState(blankBook);
 
+  const [uploadingCover, setUploadingCover] = useState(false);
+
+  const handleCoverUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingCover(true);
+    setErr("");
+    const ext = file.name.split(".").pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from("book-covers").upload(fileName, file);
+    if (uploadError) {
+      setErr("Gagal upload foto: " + uploadError.message);
+      setUploadingCover(false);
+      return;
+    }
+    const { data } = supabase.storage.from("book-covers").getPublicUrl(fileName);
+    setBookForm((prev) => ({ ...prev, cover_url: data.publicUrl }));
+    setUploadingCover(false);
+  };
+
   const openAddBook = () => {
     setBookForm(blankBook);
     setEditingBook(null);
@@ -441,6 +465,7 @@ export default function App() {
   // ---- Filters ----
   const [search, setSearch] = useState("");
   const [genreFilter, setGenreFilter] = useState("Semua");
+  const [langFilter, setLangFilter] = useState("Semua");
   const [statusFilter, setStatusFilter] = useState("Semua");
   const [dateStart, setDateStart] = useState("");
   const [dateEnd, setDateEnd] = useState("");
@@ -450,6 +475,7 @@ export default function App() {
   const filteredBooks = useMemo(() => {
     return books.filter((b) => {
       if (genreFilter !== "Semua" && b.genre !== genreFilter) return false;
+      if (langFilter !== "Semua" && b.language !== langFilter) return false;
       const derived = deriveBookStatus(b);
       if (statusFilter !== "Semua" && derived !== statusFilter) return false;
       const q = search.trim().toLowerCase();
@@ -461,7 +487,7 @@ export default function App() {
       return true;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [books, search, genreFilter, statusFilter, dateStart, dateEnd, loans]);
+  }, [books, search, genreFilter, langFilter, statusFilter, dateStart, dateEnd, loans]);
 
   const myBooks = useMemo(() => (session ? books.filter((b) => b.owner_id === session.id) : []), [books, session]);
   const incomingLoans = useMemo(
@@ -619,6 +645,12 @@ export default function App() {
               <select style={{ ...inputStyle, width: 150 }} value={genreFilter} onChange={(e) => setGenreFilter(e.target.value)}>
                 <option value="Semua">{t.allGenre}</option>
                 {GENRES.map((g) => <option key={g}>{g}</option>)}
+              </select>
+              <select style={{ ...inputStyle, width: 140 }} value={langFilter} onChange={(e) => setLangFilter(e.target.value)}>
+                <option value="Semua">{t.allLanguage}</option>
+                <option value="Indonesia">Indonesia</option>
+                <option value="English">English</option>
+                <option value="Arab">Arab</option>
               </select>
               <select style={{ ...inputStyle, width: 150 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <option value="Semua">{t.allStatus}</option>
@@ -780,7 +812,13 @@ export default function App() {
                   <option>Baru</option><option>Baik</option><option>Cukup Baik</option><option>Lecek</option>
                 </select>
               </Field>
-              <Field label={t.coverUrl}><input style={inputStyle} value={bookForm.cover_url} onChange={(e) => setBookForm({ ...bookForm, cover_url: e.target.value })} /></Field>
+              <Field label={t.coverUrl}>
+                {bookForm.cover_url && (
+                  <img src={bookForm.cover_url} alt="cover" style={{ width: 70, height: 92, objectFit: "cover", borderRadius: 6, marginBottom: 8, border: "1px solid #E7D3DE" }} />
+                )}
+                <input type="file" accept="image/*" onChange={handleCoverUpload} style={inputStyle} disabled={uploadingCover} />
+                {uploadingCover && <div style={{ fontSize: 12, color: "#8A6D7D", marginTop: 4 }}>{t.uploading}</div>}
+              </Field>
               <Field label={t.bookLanguage}>
                 <select style={inputStyle} value={bookForm.language} onChange={(e) => setBookForm({ ...bookForm, language: e.target.value })}>
                   <option value="Indonesia">Indonesia</option>
