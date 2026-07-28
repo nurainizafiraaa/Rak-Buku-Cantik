@@ -11,6 +11,8 @@ import {
   RefreshCw,
   Award,
   MessageCircle,
+  ArrowLeftRight,
+  X,
 } from "lucide-react";
 
 const GENRES = ["Fiksi", "Non-Fiksi", "Sejarah", "Sains", "Biografi", "Anak", "Bisnis", "Puisi", "Self Improvement", "Lainnya"];
@@ -119,6 +121,13 @@ const T = {
     errPendingApproval: "Akun kamu masih menunggu persetujuan Queen.",
     errEndBeforeStart: "Tanggal kembali harus setelah tanggal pinjam.",
     errConflict: "Buku sudah dipesan/dipinjam pada rentang tanggal ini.",
+    close: "Tutup",
+    allMembers: "Semua",
+    newRequests: "Permintaan Baru",
+    myProfile: "Akun Saya",
+    dateHint: "Cari buku yang tersedia di rentang tanggal ini",
+    borrowBook: "Pinjam Buku",
+    pickAndBorrow: "Pilih buku yang ingin kamu baca",
   },
   en: {
     appName: "Rak Cantik",
@@ -203,6 +212,13 @@ const T = {
     errPendingApproval: "Your account is still awaiting Queen's approval.",
     errEndBeforeStart: "Return date must be after loan date.",
     errConflict: "This book is already booked/borrowed for this date range.",
+    close: "Close",
+    allMembers: "All",
+    newRequests: "New Requests",
+    myProfile: "My Account",
+    dateHint: "Find books available in this date range",
+    borrowBook: "Borrow a Book",
+    pickAndBorrow: "Choose a book you'd like to read",
   },
 };
 
@@ -257,11 +273,54 @@ function Field({ label, children }) {
   );
 }
 
-function Card({ children, style }) {
+function Card({ children, style, className = "" }) {
   return (
-    <div className="rc-card" style={{ background: "#fff", border: "1px solid #F0DCE6", borderRadius: 12, padding: 20, ...style }}>
+    <div className={`rc-card ${className}`.trim()} style={{ background: "#fff", border: "1px solid #F0DCE6", borderRadius: 12, padding: 20, ...style }}>
       {children}
     </div>
+  );
+}
+
+function MobileStyles() {
+  return (
+    <style>{`
+      @media (max-width: 680px) {
+        .rc-header {
+          flex-direction: column;
+          align-items: flex-start !important;
+          gap: 10px !important;
+        }
+        .rc-header-actions {
+          width: 100%;
+          flex-wrap: wrap;
+        }
+        .rc-filters {
+          flex-direction: column;
+        }
+        .rc-filters > * {
+          width: 100% !important;
+        }
+        .rc-book-grid {
+          grid-template-columns: repeat(2, 1fr) !important;
+          gap: 10px !important;
+        }
+        .rc-modal-card {
+          width: 92vw !important;
+        }
+        .rc-tabs {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+        .rc-content {
+          padding: 16px !important;
+        }
+      }
+      @media (max-width: 420px) {
+        .rc-book-grid {
+          grid-template-columns: 1fr !important;
+        }
+      }
+    `}</style>
   );
 }
 
@@ -583,6 +642,11 @@ export default function App() {
   const [showEditProfile, setShowEditProfile] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [detailBook, setDetailBook] = useState(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [loansView, setLoansView] = useState("active");
+  const [memberFilter, setMemberFilter] = useState("all");
+  const [showBorrowPicker, setShowBorrowPicker] = useState(false);
+  const [borrowPickBookId, setBorrowPickBookId] = useState("");
   const [profileForm, setProfileForm] = useState({ name: "", email: "", wa_contact: "", access_code: "" });
   const [profileErr, setProfileErr] = useState("");
 
@@ -765,7 +829,8 @@ export default function App() {
   if (!session || screen !== "app") {
     const corner = { position: "absolute", opacity: 0.18, color: "#C6789A" };
     return (
-      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, position: "relative", overflow: "hidden" }}>
+      <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, position: "relative", overflow: "hidden" }}>
+        <MobileStyles />
         <Flower2 size={40} style={{ ...corner, top: 28, left: 28 }} />
         <Flower2 size={30} style={{ ...corner, top: 40, right: 40 }} />
         <Flower2 size={26} style={{ ...corner, bottom: 40, left: 48 }} />
@@ -788,33 +853,33 @@ export default function App() {
           {t.tagline} <Sparkles size={13} />
         </p>
 
-        <Card style={{ width: 360, maxWidth: "100%", marginTop: 24, position: "relative", zIndex: 1 }}>
-          {screen === "welcome" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <Btn onClick={() => setScreen("login-member")} style={{ width: "100%", justifyContent: "center", padding: "12px" }}>
-                <Flower2 size={15} /> {t.loginMember}
-              </Btn>
-              <Btn variant="ghost" onClick={() => setScreen("login-owner")} style={{ width: "100%", justifyContent: "center", padding: "12px" }}>
-                <Sparkles size={15} /> {t.loginOwner}
-              </Btn>
-              <div style={{ textAlign: "center", fontSize: 11.5, color: "#B79AA8", margin: "6px 0" }}>
-                {lang === "id" ? "— atau —" : "— or —"}
-              </div>
-              <Btn
-                variant="ghost"
-                onClick={() => {
-                  setRequestRole("member");
-                  setRequestForm({ name: "", email: "", wa_contact: "", access_code: "" });
-                  setRequestErr("");
-                  setRequestSubmitted(false);
-                  setScreen("request-role");
-                }}
-                style={{ width: "100%", justifyContent: "center", padding: "12px" }}
-              >
-                {lang === "id" ? "Ajukan Akun Baru" : "Request Access"}
-              </Btn>
+        {screen === "welcome" && (
+          <div style={{ width: 340, maxWidth: "100%", display: "flex", flexDirection: "column", gap: 12, position: "relative", zIndex: 1 }}>
+            <Btn onClick={() => setScreen("login-member")} style={{ width: "100%", justifyContent: "center", padding: "15px", borderRadius: 30, fontSize: 15 }}>
+              <Flower2 size={16} /> {t.loginMember}
+            </Btn>
+            <Btn variant="ghost" onClick={() => setScreen("login-owner")} style={{ width: "100%", justifyContent: "center", padding: "15px", borderRadius: 30, fontSize: 15, background: "#fff" }}>
+              <Sparkles size={16} /> {t.loginOwner}
+            </Btn>
+            <div style={{ textAlign: "center", fontSize: 11.5, color: "#B79AA8", margin: "4px 0" }}>
+              {lang === "id" ? "— atau —" : "— or —"}
             </div>
-          )}
+            <button
+              onClick={() => {
+                setRequestRole("member");
+                setRequestForm({ name: "", email: "", wa_contact: "", access_code: "" });
+                setRequestErr("");
+                setRequestSubmitted(false);
+                setScreen("request-role");
+              }}
+              style={{ width: "100%", textAlign: "center", padding: "10px", borderRadius: 30, fontSize: 13.5, fontWeight: 700, color: "#8A6D7D", background: "transparent", border: "none", cursor: "pointer", textDecoration: "underline" }}
+            >
+              {lang === "id" ? "Ajukan Akun Baru" : "Request Access"}
+            </button>
+          </div>
+        )}
+        {screen !== "welcome" && (
+        <Card className="rc-modal-card" style={{ width: 360, maxWidth: "100%", marginTop: 24, position: "relative", zIndex: 1 }}>
           {screen === "login-member" && (
             <div>
               <Field label={t.memberName}>
@@ -898,6 +963,10 @@ export default function App() {
             </div>
           )}
         </Card>
+        )}
+        <div style={{ marginTop: 28, textAlign: "center", fontSize: 11.5, color: "#B79AA8", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, position: "relative", zIndex: 1 }}>
+          <Flower2 size={11} /> {t.footer} <Flower2 size={11} />
+        </div>
       </div>
     );
   }
@@ -905,59 +974,34 @@ export default function App() {
   const tabs =
     canManage
       ? [
-          { id: "katalog", label: t.katalog },
-          { id: "peminjaman", label: t.peminjaman },
-          { id: "members", label: t.members },
+          { id: "katalog", label: t.katalog, icon: BookOpen },
+          { id: "peminjaman", label: t.peminjaman, icon: ArrowLeftRight },
+          { id: "members", label: t.members, icon: Users },
         ]
       : [
-          { id: "katalog", label: t.katalog },
-          { id: "peminjaman", label: t.peminjaman },
+          { id: "katalog", label: t.katalog, icon: BookOpen },
+          { id: "peminjaman", label: t.peminjaman, icon: ArrowLeftRight },
         ];
 
   return (
-    <div style={{ minHeight: "100vh", fontFamily: "'Inter', sans-serif", color: "#4A3B45", paddingBottom: 60 }}>
-      <div style={{ padding: "16px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: "linear-gradient(135deg,#F6C6DC,#E8B9E6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Flower2 size={16} color="#6B3B54" />
+    <div style={{ minHeight: "100dvh", fontFamily: "'Inter', sans-serif", color: "#4A3B45", paddingBottom: 60 }}>
+      <MobileStyles />
+      <div className="rc-header" style={{ padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+        <button
+          onClick={() => setShowProfileMenu(true)}
+          style={{ display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", padding: 0 }}
+        >
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: "linear-gradient(135deg,#F6C6DC,#E8B9E6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Flower2 size={17} color="#6B3B54" />
           </div>
-          <span style={{ fontFamily: "'Bitter', serif", fontWeight: 800, fontSize: 18, color: "#6B3B54" }}>{t.appName}</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <LangToggle />
-          <span style={{ fontSize: 12, background: isQueen ? "#F0C419" : session.role === "owner" ? "#F6C6DC" : "#DFF3F5", color: "#6B3B54", padding: "4px 10px", borderRadius: 20, fontWeight: 700 }}>
-            {isQueen ? (<><Crown size={12} style={{ display: "inline", verticalAlign: -1 }} /> Queen</>) : session.role === "owner" ? t.owner : t.member}
-          </span>
-          <span style={{ fontSize: 13.5, fontWeight: 600 }}>{session.name}</span>
-          <Btn variant="ghost" onClick={() => setShowStats(true)}>
-            <Award size={13} /> {lang === "id" ? "Statistik" : "Stats"}
-          </Btn>
-          {session.role !== "member" && (
-            <Btn variant="ghost" onClick={openEditProfile}>
-              {lang === "id" ? "Edit Profil" : "Edit Profile"}
-            </Btn>
-          )}
-          <Btn variant="ghost" onClick={logout}>{t.logout}</Btn>
-        </div>
+          <span style={{ fontFamily: "'Bitter', serif", fontWeight: 800, fontSize: 17, color: "#6B3B54" }}>{t.appName}</span>
+        </button>
+        <span style={{ fontSize: 11.5, background: isQueen ? "#F0C419" : session.role === "owner" ? "#F6C6DC" : "#DFF3F5", color: "#6B3B54", padding: "5px 11px", borderRadius: 20, fontWeight: 700, whiteSpace: "nowrap" }}>
+          {isQueen ? (<><Crown size={11} style={{ display: "inline", verticalAlign: -1 }} /> Queen</>) : session.role === "owner" ? t.owner : t.member} · {session.name}
+        </span>
       </div>
 
-      <div style={{ display: "flex", gap: 4, padding: "0 24px", borderBottom: "1px solid #F0DCE6" }}>
-        {tabs.map((tb) => (
-          <button
-            key={tb.id}
-            onClick={() => setTab(tb.id)}
-            style={{
-              padding: "10px 14px", fontSize: 13.5, fontWeight: 700, background: "transparent", border: "none",
-              borderBottom: tab === tb.id ? "2.5px solid #C6789A" : "2.5px solid transparent",
-              color: tab === tb.id ? "#6B3B54" : "#B79AA8", cursor: "pointer",
-            }}
-          >
-            {tb.label}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
+      <div className="rc-content" style={{ padding: 24, paddingBottom: 90, maxWidth: 1100, margin: "0 auto" }}>
         {err && <div style={{ background: "#FBDCD9", color: "#A6402D", padding: "8px 12px", borderRadius: 8, fontSize: 12.5, marginBottom: 14 }}>{err}</div>}
 
         {tab === "katalog" && (
@@ -967,53 +1011,52 @@ export default function App() {
               {canManage && <Btn onClick={openAddBook}>+ {t.addBook}</Btn>}
             </div>
 
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
-              <input style={{ ...inputStyle, flex: "1 1 200px" }} placeholder={t.searchPlaceholder} value={search} onChange={(e) => setSearch(e.target.value)} />
-              <select style={{ ...inputStyle, width: 150 }} value={genreFilter} onChange={(e) => setGenreFilter(e.target.value)}>
-                <option value="Semua">{t.allGenre}</option>
-                {GENRES.map((g) => <option key={g}>{g}</option>)}
-              </select>
-              <select style={{ ...inputStyle, width: 140 }} value={langFilter} onChange={(e) => setLangFilter(e.target.value)}>
-                <option value="Semua">{t.allLanguage}</option>
-                <option value="Indonesia">Indonesia</option>
-                <option value="English">English</option>
-                <option value="Arab">Arab</option>
-              </select>
-              <select style={{ ...inputStyle, width: 150 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                <option value="Semua">{t.allStatus}</option>
-                <option value="available">{t.available}</option>
-                <option value="reading">{t.reading}</option>
-              </select>
-              <input type="date" style={{ ...inputStyle, width: 150 }} value={dateStart} onChange={(e) => setDateStart(e.target.value)} title={t.startDate} />
-              <input type="date" style={{ ...inputStyle, width: 150 }} value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} title={t.endDate} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+              <input style={inputStyle} placeholder={t.searchPlaceholder} value={search} onChange={(e) => setSearch(e.target.value)} />
+              <div style={{ display: "flex", gap: 8 }}>
+                <select style={{ ...inputStyle, flex: 1 }} value={genreFilter} onChange={(e) => setGenreFilter(e.target.value)}>
+                  <option value="Semua">{t.allGenre}</option>
+                  {GENRES.map((g) => <option key={g}>{g}</option>)}
+                </select>
+                <select style={{ ...inputStyle, flex: 1 }} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                  <option value="Semua">{t.allStatus}</option>
+                  <option value="available">{t.available}</option>
+                  <option value="reading">{t.reading}</option>
+                </select>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input type="date" style={{ ...inputStyle, flex: 1 }} value={dateStart} onChange={(e) => setDateStart(e.target.value)} title={t.startDate} />
+                <span style={{ fontSize: 11.5, color: "#B79AA8", flexShrink: 0 }}>{lang === "id" ? "s/d" : "to"}</span>
+                <input type="date" style={{ ...inputStyle, flex: 1 }} value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} title={t.endDate} />
+              </div>
+              {(dateStart || dateEnd) && <div style={{ fontSize: 11.5, color: "#C6789A" }}>{t.dateHint}</div>}
             </div>
 
             {filteredBooks.length === 0 ? (
               <div style={{ textAlign: "center", padding: 50, color: "#B79AA8" }}>{t.noBooks}</div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px,1fr))", gap: 14 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {filteredBooks.map((b) => {
                   const status = deriveBookStatus(b);
                   return (
                     <div
                       key={b.id}
                       onClick={() => setDetailBook(b)}
-                      style={{ background: pastelFor(b.id), borderRadius: 12, padding: 16, position: "relative", cursor: "pointer" }}
+                      style={{ background: pastelFor(b.id), borderRadius: 12, padding: "12px 14px", position: "relative", cursor: "pointer" }}
                     >
-                      <span style={{
-                        position: "absolute", top: 12, right: 12, fontSize: 10.5, fontWeight: 700, padding: "3px 9px", borderRadius: 20,
-                        background: status === "available" ? "#E6F4EA" : "#FBE0D6", color: status === "available" ? "#2F6B3F" : "#A6542D",
-                      }}>
-                        {status === "available" ? t.available : t.reading}
-                      </span>
-                      <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 15.5, paddingRight: 70, marginBottom: 2, color: "#5A3B4A" }}>{b.title}</div>
-                      <div style={{ fontSize: 12.5, color: "#8A6D7D", marginBottom: 8 }}>{b.author}</div>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-                        <span style={{ fontSize: 10.5, background: "rgba(255,255,255,0.7)", padding: "2px 8px", borderRadius: 20 }}>{b.genre}</span>
-                        <span style={{ fontSize: 10.5, background: "rgba(255,255,255,0.7)", padding: "2px 8px", borderRadius: 20 }}>{b.condition}</span>
-                        {b.language && <span style={{ fontSize: 10.5, background: "rgba(255,255,255,0.7)", padding: "2px 8px", borderRadius: 20 }}>{b.language}</span>}
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                        <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 14.5, color: "#5A3B4A", lineHeight: 1.25 }}>{b.title}</div>
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: "3px 9px", borderRadius: 20, whiteSpace: "nowrap", flexShrink: 0,
+                          background: status === "available" ? "#E6F4EA" : "#FBE0D6", color: status === "available" ? "#2F6B3F" : "#A6542D",
+                        }}>
+                          {status === "available" ? t.available : t.reading}
+                        </span>
                       </div>
-                      <div style={{ fontSize: 11.5, color: "#8A6D7D" }}>{t.ownerLabel}: {memberName(b.owner_id)}</div>
+                      <div style={{ fontSize: 12, color: "#8A6D7D", marginTop: 2 }}>{b.author}</div>
+                      <div style={{ fontSize: 11, color: "#8A6D7D", marginTop: 5 }}>
+                        {b.genre} · {b.condition}{b.language ? ` · ${b.language}` : ""} · {t.ownerLabel}: {memberName(b.owner_id)}
+                      </div>
                     </div>
                   );
                 })}
@@ -1024,73 +1067,21 @@ export default function App() {
 
         {tab === "peminjaman" && (
           <div>
-            {canManage && (
-              <div style={{ marginBottom: 28 }}>
-                <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54" }}>{t.incoming}</h2>
-                {incomingAwaiting.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: 20, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {incomingAwaiting.map((l) => {
-                      const book = books.find((b) => b.id === l.book_id);
-                      const sc = STATUS_COLORS[l.status];
-                      return (
-                        <Card key={l.id}>
-                          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-                            <div>
-                              <div style={{ fontWeight: 700 }}>{book?.title}</div>
-                              <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.borrowerName}: <b>{memberName(l.borrower_id)}</b></div>
-                              <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
-                            </div>
-                            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-                              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
-                              <div style={{ display: "flex", gap: 6 }}>
-                                {l.status === "pending" && (<>
-                                  <Btn onClick={() => respondLoan(l, "approve")}>{t.approve}</Btn>
-                                  <Btn variant="danger" onClick={() => respondLoan(l, "reject")}>{t.reject}</Btn>
-                                </>)}
-                                {l.status === "approved" && <Btn onClick={() => { setActivateModal(l); setProofFile(null); }}>{t.markHandover}</Btn>}
-                              </div>
-                            </div>
-                          </div>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div style={{ marginBottom: 28 }}>
-              <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54" }}>{t.sectionWaiting}</h2>
-              {myLoans.filter((l) => ["pending", "approved"].includes(l.status)).length === 0 ? (
-                <div style={{ textAlign: "center", padding: 20, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {myLoans.filter((l) => ["pending", "approved"].includes(l.status)).map((l) => {
-                    const book = books.find((b) => b.id === l.book_id);
-                    const sc = STATUS_COLORS[l.status];
-                    return (
-                      <Card key={l.id}>
-                        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-                          <div>
-                            <div style={{ fontWeight: 700 }}>{book?.title}</div>
-                            <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.ownerLabel}: {memberName(book?.owner_id)}</div>
-                            <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
-                          </div>
-                          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color, alignSelf: "flex-start" }}>{t[l.status] || l.status}</span>
-                        </div>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
+              <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 21, color: "#6B3B54", margin: 0, display: "flex", alignItems: "center", gap: 8 }}><ArrowLeftRight size={19} /> {t.peminjaman}</h2>
             </div>
+            <Btn onClick={() => { setShowBorrowPicker(true); setBorrowPickBookId(""); }} style={{ width: "100%", justifyContent: "center", marginBottom: 14 }}>
+              + {t.borrowBook}
+            </Btn>
+            <select style={{ ...inputStyle, marginBottom: 18 }} value={loansView} onChange={(e) => setLoansView(e.target.value)}>
+              <option value="active">{t.sectionReading}</option>
+              <option value="pending">{t.sectionWaiting}</option>
+              <option value="returned">{t.returnedBooksSection}</option>
+            </select>
 
-            <div style={{ marginBottom: 28 }}>
-              <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54" }}>{t.sectionReading}</h2>
-              {currentlyReading.length === 0 ? (
-                <div style={{ textAlign: "center", padding: 20, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
+            {loansView === "active" && (
+              currentlyReading.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 30, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {currentlyReading.map((l) => {
@@ -1135,184 +1126,294 @@ export default function App() {
                     );
                   })}
                 </div>
-              )}
-            </div>
+              )
+            )}
 
-            <div style={{ marginBottom: 28 }}>
-              <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54" }}>{t.sectionHistory}</h2>
-              {myLoans.filter((l) => l.status === "returned" || l.status === "rejected").length === 0 ? (
-                <div style={{ textAlign: "center", padding: 20, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {myLoans.filter((l) => l.status === "returned" || l.status === "rejected").map((l) => {
-                    const book = books.find((b) => b.id === l.book_id);
-                    const sc = STATUS_COLORS[l.status];
-                    return (
-                      <Card key={l.id}>
-                        <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-                          <div>
-                            <div style={{ fontWeight: 700 }}>{book?.title}</div>
-                            <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.ownerLabel}: {memberName(book?.owner_id)}</div>
-                            <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
-                            {(l.handover_photo_url || l.return_photo_url) && (
-                              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                                {l.handover_photo_url && (
-                                  <a href={l.handover_photo_url} target="_blank" rel="noreferrer">
-                                    <img src={l.handover_photo_url} alt="handover" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, border: "1px solid #E7D3DE" }} />
-                                  </a>
-                                )}
-                                {l.return_photo_url && (
-                                  <a href={l.return_photo_url} target="_blank" rel="noreferrer">
-                                    <img src={l.return_photo_url} alt="return" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, border: "1px solid #E7D3DE" }} />
-                                  </a>
-                                )}
+            {loansView === "pending" && (
+              <>
+                {canManage && (
+                  <div style={{ marginBottom: incomingAwaiting.length ? 22 : 0 }}>
+                    {incomingAwaiting.length > 0 && <h3 style={{ fontSize: 13.5, color: "#8A6D7D", marginBottom: 8, fontWeight: 700 }}>{t.incoming}</h3>}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {incomingAwaiting.map((l) => {
+                        const book = books.find((b) => b.id === l.book_id);
+                        const sc = STATUS_COLORS[l.status];
+                        return (
+                          <Card key={l.id}>
+                            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                              <div>
+                                <div style={{ fontWeight: 700 }}>{book?.title}</div>
+                                <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.borrowerName}: <b>{memberName(l.borrower_id)}</b></div>
+                                <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
                               </div>
-                            )}
-                          </div>
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
-                            <Btn variant="danger" onClick={() => hideLoanForBorrower(l.id)}>{t.delete}</Btn>
-                          </div>
-                        </div>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {canManage && (
-              <div>
-                <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54" }}>{t.returnedBooksSection}</h2>
-                {incomingFinished.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: 20, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {incomingFinished.map((l) => {
-                      const book = books.find((b) => b.id === l.book_id);
-                      const sc = STATUS_COLORS[l.status];
-                      return (
-                        <Card key={l.id}>
-                          <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-                            <div>
-                              <div style={{ fontWeight: 700 }}>{book?.title}</div>
-                              <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.borrowerName}: <b>{memberName(l.borrower_id)}</b></div>
-                              <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
-                              {(l.handover_photo_url || l.return_photo_url) && (
-                                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                                  {l.handover_photo_url && (
-                                    <a href={l.handover_photo_url} target="_blank" rel="noreferrer">
-                                      <img src={l.handover_photo_url} alt="handover" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, border: "1px solid #E7D3DE" }} />
-                                    </a>
-                                  )}
-                                  {l.return_photo_url && (
-                                    <a href={l.return_photo_url} target="_blank" rel="noreferrer">
-                                      <img src={l.return_photo_url} alt="return" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 6, border: "1px solid #E7D3DE" }} />
-                                    </a>
-                                  )}
+                              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
+                                <div style={{ display: "flex", gap: 6 }}>
+                                  {l.status === "pending" && (<>
+                                    <Btn onClick={() => respondLoan(l, "approve")}>{t.approve}</Btn>
+                                    <Btn variant="danger" onClick={() => respondLoan(l, "reject")}>{t.reject}</Btn>
+                                  </>)}
+                                  {l.status === "approved" && <Btn onClick={() => { setActivateModal(l); setProofFile(null); }}>{t.markHandover}</Btn>}
                                 </div>
-                              )}
+                              </div>
                             </div>
-                            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-                              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
-                              <Btn variant="danger" onClick={() => hideLoanForOwner(l.id)}>{t.delete}</Btn>
-                            </div>
-                          </div>
-                        </Card>
-                      );
-                    })}
+                          </Card>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
-              </div>
+                {myLoans.filter((l) => ["pending", "approved"].includes(l.status)).length > 0 && (
+                  <div>
+                    {canManage && <h3 style={{ fontSize: 13.5, color: "#8A6D7D", marginBottom: 8, fontWeight: 700 }}>{t.myLoans}</h3>}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {myLoans.filter((l) => ["pending", "approved"].includes(l.status)).map((l) => {
+                        const book = books.find((b) => b.id === l.book_id);
+                        const sc = STATUS_COLORS[l.status];
+                        return (
+                          <Card key={l.id}>
+                            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                              <div>
+                                <div style={{ fontWeight: 700 }}>{book?.title}</div>
+                                <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.ownerLabel}: {memberName(book?.owner_id)}</div>
+                                <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
+                              </div>
+                              <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color, alignSelf: "flex-start" }}>{t[l.status] || l.status}</span>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {(!canManage || incomingAwaiting.length === 0) && myLoans.filter((l) => ["pending", "approved"].includes(l.status)).length === 0 && (
+                  <div style={{ textAlign: "center", padding: 30, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
+                )}
+              </>
+            )}
+
+            {loansView === "returned" && (
+              <>
+                {canManage && (
+                  <div style={{ marginBottom: incomingFinished.length ? 22 : 0 }}>
+                    {incomingFinished.length > 0 && <h3 style={{ fontSize: 13.5, color: "#8A6D7D", marginBottom: 8, fontWeight: 700 }}>{t.returnedBooksSection}</h3>}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {incomingFinished.map((l) => {
+                        const book = books.find((b) => b.id === l.book_id);
+                        const sc = STATUS_COLORS[l.status];
+                        return (
+                          <Card key={l.id}>
+                            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                              <div>
+                                <div style={{ fontWeight: 700 }}>{book?.title}</div>
+                                <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.borrowerName}: <b>{memberName(l.borrower_id)}</b></div>
+                                <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
+                                <Btn variant="danger" onClick={() => hideLoanForOwner(l.id)}>{t.delete}</Btn>
+                              </div>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {myLoans.filter((l) => l.status === "returned" || l.status === "rejected").length > 0 && (
+                  <div>
+                    {canManage && <h3 style={{ fontSize: 13.5, color: "#8A6D7D", marginBottom: 8, fontWeight: 700 }}>{t.sectionHistory}</h3>}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {myLoans.filter((l) => l.status === "returned" || l.status === "rejected").map((l) => {
+                        const book = books.find((b) => b.id === l.book_id);
+                        const sc = STATUS_COLORS[l.status];
+                        return (
+                          <Card key={l.id}>
+                            <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+                              <div>
+                                <div style={{ fontWeight: 700 }}>{book?.title}</div>
+                                <div style={{ fontSize: 12.5, color: "#8A6D7D" }}>{t.ownerLabel}: {memberName(book?.owner_id)}</div>
+                                <div style={{ fontSize: 12, color: "#B79AA8", marginTop: 4 }}>{l.loan_date} — {l.target_return_date}</div>
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: sc.bg, color: sc.color }}>{t[l.status] || l.status}</span>
+                                <Btn variant="danger" onClick={() => hideLoanForBorrower(l.id)}>{t.delete}</Btn>
+                              </div>
+                            </div>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {(!canManage || incomingFinished.length === 0) && myLoans.filter((l) => l.status === "returned" || l.status === "rejected").length === 0 && (
+                  <div style={{ textAlign: "center", padding: 30, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
+                )}
+              </>
             )}
           </div>
         )}
 
         {tab === "members" && canManage && (
           <div>
-            {isQueen && (
-              <div style={{ marginBottom: 26 }}>
-                <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 19, color: "#6B3B54", marginBottom: 12 }}>
-                  {lang === "id" ? "Permintaan Akun Baru" : "New Account Requests"}
-                </h2>
-                {members.filter((m) => m.status === "pending").length === 0 ? (
-                  <div style={{ textAlign: "center", padding: 16, color: "#B79AA8", fontSize: 13 }}>{t.noLoans}</div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {members.filter((m) => m.status === "pending").map((m) => (
-                      <Card key={m.id}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                          <div>
-                            <div style={{ fontWeight: 700 }}>{m.name}</div>
-                            <div style={{ fontSize: 12, color: "#8A6D7D" }}>{m.email || "-"} {m.wa_contact ? `· WA: ${m.wa_contact}` : ""}</div>
-                            <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 9px", borderRadius: 20, background: m.role === "owner" ? "#F6C6DC" : "#DFF3F5", color: "#6B3B54", display: "inline-block", marginTop: 4 }}>
-                              {m.role === "owner" ? t.owner : t.member}
-                            </span>
-                          </div>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <Btn onClick={() => approveMember(m.id)}>{t.approve}</Btn>
-                            <Btn variant="danger" onClick={() => deleteMember(m.id)}>{t.reject}</Btn>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <h2 style={{ fontFamily: "'Bitter', serif", fontSize: 21, color: "#6B3B54", margin: 0, display: "flex", alignItems: "center", gap: 8 }}><Users size={19} /> {t.members}</h2>
               <Btn onClick={() => setShowAddMember(true)}>+ {t.addMember}</Btn>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {members.filter((m) => m.status === "approved").map((m) => (
-                <Card key={m.id}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                    <div>
-                      <div style={{ fontWeight: 700 }}>{m.name}</div>
-                      <div style={{ fontSize: 12, color: "#8A6D7D" }}>{m.email || "-"} {m.wa_contact ? `· WA: ${m.wa_contact}` : ""}</div>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: m.role === "queen" ? "#F0C419" : m.role === "owner" ? "#F6C6DC" : "#DFF3F5", color: "#6B3B54" }}>
-                        {m.role === "queen" ? (<><Crown size={12} style={{ display: "inline", verticalAlign: -1 }} /> Queen</>) : m.role === "owner" ? t.owner : t.member}
-                      </span>
-                      {waNotifyLink(m) && isQueen && (
-                        <Btn
-                          variant="ghost"
-                          onClick={() => window.open(waNotifyLink(m), "_blank")}
-                          style={{ color: "#3C8A5C" }}
-                        >
-                          <MessageCircle size={13} />
-                        </Btn>
-                      )}
-                      {isQueen && m.role !== "queen" && (
-                        <Btn variant="ghost" onClick={() => setNewOwnerCode({ name: m.name, code: m.access_code })}>
-                          {lang === "id" ? "Lihat Kode" : "View Code"}
-                        </Btn>
-                      )}
-                      {isQueen && m.role !== "queen" && (
-                        <Btn variant="danger" onClick={() => deleteMember(m.id)}>
-                          <Trash2 size={13} />
-                        </Btn>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
+
+            <select style={{ ...inputStyle, marginBottom: 16 }} value={memberFilter} onChange={(e) => setMemberFilter(e.target.value)}>
+              <option value="all">{t.allMembers}</option>
+              <option value="member">{t.member}</option>
+              <option value="owner">{t.owner}</option>
+              {isQueen && (
+                <option value="pending">
+                  {t.newRequests}{members.filter((m) => m.status === "pending").length > 0 ? ` (${members.filter((m) => m.status === "pending").length})` : ""}
+                </option>
+              )}
+            </select>
+
+            {memberFilter === "pending" ? (
+              members.filter((m) => m.status === "pending").length === 0 ? (
+                <div style={{ textAlign: "center", padding: 30, color: "#B79AA8", fontSize: 13.5 }}>{t.noLoans}</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {members.filter((m) => m.status === "pending").map((m) => (
+                    <Card key={m.id}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                        <div>
+                          <div style={{ fontWeight: 700 }}>{m.name}</div>
+                          <div style={{ fontSize: 12, color: "#8A6D7D" }}>{m.email || "-"} {m.wa_contact ? `· WA: ${m.wa_contact}` : ""}</div>
+                          <span style={{ fontSize: 10.5, fontWeight: 700, padding: "2px 9px", borderRadius: 20, background: m.role === "owner" ? "#F6C6DC" : "#DFF3F5", color: "#6B3B54", display: "inline-block", marginTop: 4 }}>
+                            {m.role === "owner" ? t.owner : t.member}
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <Btn onClick={() => approveMember(m.id)}>{t.approve}</Btn>
+                          <Btn variant="danger" onClick={() => deleteMember(m.id)}>{t.reject}</Btn>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {members
+                  .filter((m) => m.status === "approved")
+                  .filter((m) => memberFilter === "all" || m.role === memberFilter)
+                  .map((m) => (
+                    <Card key={m.id}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                        <div>
+                          <div style={{ fontWeight: 700 }}>{m.name}</div>
+                          <div style={{ fontSize: 12, color: "#8A6D7D" }}>{m.email || "-"} {m.wa_contact ? `· WA: ${m.wa_contact}` : ""}</div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: m.role === "queen" ? "#F0C419" : m.role === "owner" ? "#F6C6DC" : "#DFF3F5", color: "#6B3B54" }}>
+                            {m.role === "queen" ? (<><Crown size={12} style={{ display: "inline", verticalAlign: -1 }} /> Queen</>) : m.role === "owner" ? t.owner : t.member}
+                          </span>
+                          {waNotifyLink(m) && isQueen && (
+                            <Btn
+                              variant="ghost"
+                              onClick={() => window.open(waNotifyLink(m), "_blank")}
+                              style={{ color: "#3C8A5C" }}
+                            >
+                              <MessageCircle size={13} />
+                            </Btn>
+                          )}
+                          {isQueen && m.role !== "queen" && (
+                            <Btn variant="ghost" onClick={() => setNewOwnerCode({ name: m.name, code: m.access_code })}>
+                              {lang === "id" ? "Lihat Kode" : "View Code"}
+                            </Btn>
+                          )}
+                          {isQueen && m.role !== "queen" && (
+                            <Btn variant="danger" onClick={() => deleteMember(m.id)}>
+                              <Trash2 size={13} />
+                            </Btn>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      <div style={{ textAlign: "center", padding: "20px", color: "#B79AA8", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+      <div style={{ textAlign: "center", padding: "20px 20px 90px", color: "#B79AA8", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
         <Flower2 size={12} /> {t.footer} <Flower2 size={12} />
       </div>
+
+      {/* Bottom navigation */}
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid #F0DCE6", display: "flex", justifyContent: "space-around", padding: "8px 6px calc(8px + env(safe-area-inset-bottom))", zIndex: 40 }}>
+        {tabs.map((tb) => {
+          const Icon = tb.icon;
+          const activeTab = tab === tb.id;
+          return (
+            <button
+              key={tb.id}
+              onClick={() => setTab(tb.id)}
+              style={{
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 3, background: "none", border: "none",
+                cursor: "pointer", color: activeTab ? "#C6789A" : "#B79AA8", padding: "4px 14px", borderRadius: 12,
+              }}
+            >
+              <Icon size={20} />
+              <span style={{ fontSize: 10.5, fontWeight: 700 }}>{tb.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Profile / account menu (opens from flower icon) */}
+      {showProfileMenu && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "flex-end", justifyContent: "center", zIndex: 60 }} onClick={() => setShowProfileMenu(false)}>
+          <div onClick={(e) => e.stopPropagation()} className="rc-modal-card" style={{ width: 420, maxWidth: "100%" }}>
+            <Card style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0, paddingBottom: 24 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, color: "#6B3B54" }}>{t.myProfile}</div>
+                <button onClick={() => setShowProfileMenu(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "#8A6D7D" }}>
+                  <X size={18} />
+                </button>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: "linear-gradient(135deg,#F6C6DC,#E8B9E6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Flower2 size={19} color="#6B3B54" />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14.5 }}>{session.name}</div>
+                  <span style={{ fontSize: 11, background: isQueen ? "#F0C419" : session.role === "owner" ? "#F6C6DC" : "#DFF3F5", color: "#6B3B54", padding: "2px 9px", borderRadius: 20, fontWeight: 700 }}>
+                    {isQueen ? (<><Crown size={10} style={{ display: "inline", verticalAlign: -1 }} /> Queen</>) : session.role === "owner" ? t.owner : t.member}
+                  </span>
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 13, color: "#8A6D7D", fontWeight: 600 }}>{lang === "id" ? "Bahasa" : "Language"}</span>
+                  <LangToggle />
+                </div>
+                <Btn variant="ghost" onClick={() => { setShowStats(true); setShowProfileMenu(false); }} style={{ width: "100%", justifyContent: "center" }}>
+                  <Award size={14} /> {lang === "id" ? "Statistik" : "Stats"}
+                </Btn>
+                {session.role !== "member" && (
+                  <Btn variant="ghost" onClick={() => { openEditProfile(); setShowProfileMenu(false); }} style={{ width: "100%", justifyContent: "center" }}>
+                    {lang === "id" ? "Edit Profil" : "Edit Profile"}
+                  </Btn>
+                )}
+                <Btn variant="danger" onClick={logout} style={{ width: "100%", justifyContent: "center" }}>
+                  <LogOut size={14} /> {t.logout}
+                </Btn>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
 
       {/* Add/Edit Book Modal */}
       {showAddBook && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }} onClick={() => setShowAddBook(false)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: 420, maxWidth: "100%" }}>
+          <div className="rc-modal-card" onClick={(e) => e.stopPropagation()} style={{ width: 420, maxWidth: "100%" }}>
             <Card>
               <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 17, marginBottom: 14, color: "#6B3B54" }}>{t.addBookTitle}</div>
               <Field label={t.title}><input style={inputStyle} value={bookForm.title} onChange={(e) => setBookForm({ ...bookForm, title: e.target.value })} /></Field>
@@ -1360,10 +1461,50 @@ export default function App() {
         </div>
       )}
 
+      {/* Borrow book picker modal */}
+      {showBorrowPicker && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }} onClick={() => setShowBorrowPicker(false)}>
+          <div onClick={(e) => e.stopPropagation()} className="rc-modal-card" style={{ width: 380, maxWidth: "100%" }}>
+            <Card>
+              <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, marginBottom: 4, color: "#6B3B54" }}>{t.borrowBook}</div>
+              <p style={{ fontSize: 12.5, color: "#8A6D7D", marginBottom: 14 }}>{t.pickAndBorrow}</p>
+              <Field label={t.book}>
+                <select style={inputStyle} value={borrowPickBookId} onChange={(e) => setBorrowPickBookId(e.target.value)}>
+                  <option value="">{t.pickBook}</option>
+                  {availableBooksForLoan.map((b) => (
+                    <option key={b.id} value={b.id}>{b.title} — {b.author}</option>
+                  ))}
+                </select>
+              </Field>
+              {availableBooksForLoan.length === 0 && (
+                <div style={{ fontSize: 12.5, color: "#B79AA8", marginBottom: 10 }}>{t.noBooks}</div>
+              )}
+              <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                <Btn
+                  disabled={!borrowPickBookId}
+                  onClick={() => {
+                    const book = books.find((b) => b.id === borrowPickBookId);
+                    if (!book) return;
+                    setRequestModalBook(book);
+                    setReqStart(todayISO());
+                    setReqEnd(todayISO());
+                    setReqErr("");
+                    setShowBorrowPicker(false);
+                  }}
+                >
+                  {t.submit}
+                </Btn>
+                <Btn variant="ghost" onClick={() => setShowBorrowPicker(false)}>{t.cancel}</Btn>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+
       {/* Loan request modal */}
       {requestModalBook && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }} onClick={() => setRequestModalBook(null)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: 380, maxWidth: "100%" }}>
+          <div className="rc-modal-card" onClick={(e) => e.stopPropagation()} style={{ width: 380, maxWidth: "100%" }}>
             <Card>
               <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, marginBottom: 4, color: "#6B3B54" }}>{t.loanRequest}</div>
               <div style={{ fontSize: 13, color: "#8A6D7D", marginBottom: 14 }}>{requestModalBook.title}</div>
@@ -1384,7 +1525,7 @@ export default function App() {
       {/* Add member modal */}
       {showAddMember && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 16 }} onClick={() => setShowAddMember(false)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: 380, maxWidth: "100%" }}>
+          <div className="rc-modal-card" onClick={(e) => e.stopPropagation()} style={{ width: 380, maxWidth: "100%" }}>
             <Card>
               <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, marginBottom: 14, color: "#6B3B54" }}>{t.addMember}</div>
               <Field label={t.fullName}><input style={inputStyle} value={memberForm.name} onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })} /></Field>
@@ -1423,7 +1564,7 @@ export default function App() {
       {/* New owner code reveal modal */}
       {newOwnerCode && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 16 }} onClick={() => setNewOwnerCode(null)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: 360, maxWidth: "100%" }}>
+          <div className="rc-modal-card" onClick={(e) => e.stopPropagation()} style={{ width: 360, maxWidth: "100%" }}>
             <Card>
               <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, marginBottom: 10, color: "#6B3B54", display: "flex", alignItems: "center", gap: 8 }}>
                 <Flower2 size={16} /> {lang === "id" ? "Owner baru ditambahkan!" : "New owner added!"}
@@ -1448,7 +1589,7 @@ export default function App() {
       {/* Edit own profile modal */}
       {showEditProfile && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55, padding: 16 }} onClick={() => setShowEditProfile(false)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: 380, maxWidth: "100%" }}>
+          <div className="rc-modal-card" onClick={(e) => e.stopPropagation()} style={{ width: 380, maxWidth: "100%" }}>
             <Card>
               <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, marginBottom: 14, color: "#6B3B54" }}>
                 {lang === "id" ? "Edit Profil Saya" : "Edit My Profile"}
@@ -1472,7 +1613,7 @@ export default function App() {
       {/* Activate loan (mark handed over) modal */}
       {activateModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55, padding: 16 }} onClick={() => setActivateModal(null)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: 380, maxWidth: "100%" }}>
+          <div className="rc-modal-card" onClick={(e) => e.stopPropagation()} style={{ width: 380, maxWidth: "100%" }}>
             <Card>
               <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, marginBottom: 4, color: "#6B3B54" }}>
                 {lang === "id" ? "Tandai Diserahkan" : "Mark as Handed Over"}
@@ -1493,7 +1634,7 @@ export default function App() {
       {/* Return loan modal */}
       {returnModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55, padding: 16 }} onClick={() => setReturnModal(null)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: 380, maxWidth: "100%" }}>
+          <div className="rc-modal-card" onClick={(e) => e.stopPropagation()} style={{ width: 380, maxWidth: "100%" }}>
             <Card>
               <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 16, marginBottom: 4, color: "#6B3B54" }}>
                 {t.markReturned}
@@ -1514,7 +1655,7 @@ export default function App() {
       {/* Book detail modal */}
       {detailBook && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55, padding: 16 }} onClick={() => setDetailBook(null)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: 400, maxWidth: "100%" }}>
+          <div className="rc-modal-card" onClick={(e) => e.stopPropagation()} style={{ width: 400, maxWidth: "100%" }}>
             <Card>
               {detailBook.cover_url ? (
                 <img src={detailBook.cover_url} alt={detailBook.title} style={{ width: "100%", height: 200, objectFit: "cover", borderRadius: 10, marginBottom: 14 }} />
@@ -1608,7 +1749,7 @@ export default function App() {
       {/* Reading stats modal */}
       {showStats && readingStats && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(107,59,84,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 55, padding: 16 }} onClick={() => setShowStats(false)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ width: 460, maxWidth: "100%" }}>
+          <div className="rc-modal-card" onClick={(e) => e.stopPropagation()} style={{ width: 460, maxWidth: "100%" }}>
             <Card>
               <div style={{ fontFamily: "'Bitter', serif", fontWeight: 700, fontSize: 17, marginBottom: 4, color: "#6B3B54", display: "flex", alignItems: "center", gap: 8 }}>
                 <Award size={17} /> {lang === "id" ? "Statistik Baca" : "Reading Stats"}
