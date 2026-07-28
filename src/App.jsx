@@ -60,6 +60,7 @@ const T = {
     genre: "Genre",
     condition: "Kondisi",
     coverUrl: "URL Foto Sampul (opsional)",
+    bookLanguage: "Bahasa Buku",
     notes: "Catatan",
     status: "Status",
     finishBy: "Target Selesai Dibaca",
@@ -133,6 +134,7 @@ const T = {
     genre: "Genre",
     condition: "Condition",
     coverUrl: "Cover Photo URL (optional)",
+    bookLanguage: "Book Language",
     notes: "Notes",
     status: "Status",
     finishBy: "Expected Finish Date",
@@ -329,7 +331,7 @@ export default function App() {
   // ---- Books ----
   const [showAddBook, setShowAddBook] = useState(false);
   const [editingBook, setEditingBook] = useState(null);
-  const blankBook = { title: "", author: "", genre: GENRES[0], condition: "Baik", cover_url: "", notes: "", availability_status: "available", reading_until: "" };
+  const blankBook = { title: "", author: "", genre: GENRES[0], condition: "Baik", cover_url: "", notes: "", availability_status: "available", reading_until: "", language: "Indonesia" };
   const [bookForm, setBookForm] = useState(blankBook);
 
   const openAddBook = () => {
@@ -341,6 +343,7 @@ export default function App() {
     setBookForm({
       title: b.title, author: b.author, genre: b.genre || GENRES[0], condition: b.condition || "Baik",
       cover_url: b.cover_url || "", notes: b.notes || "", availability_status: b.availability_status, reading_until: b.reading_until || "",
+      language: b.language || "Indonesia",
     });
     setEditingBook(b);
     setShowAddBook(true);
@@ -645,6 +648,7 @@ export default function App() {
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
                         <span style={{ fontSize: 10.5, background: "rgba(255,255,255,0.7)", padding: "2px 8px", borderRadius: 20 }}>{b.genre}</span>
                         <span style={{ fontSize: 10.5, background: "rgba(255,255,255,0.7)", padding: "2px 8px", borderRadius: 20 }}>{b.condition}</span>
+                        {b.language && <span style={{ fontSize: 10.5, background: "rgba(255,255,255,0.7)", padding: "2px 8px", borderRadius: 20 }}>{b.language}</span>}
                       </div>
                       <div style={{ fontSize: 11.5, color: "#8A6D7D", marginBottom: 12 }}>{t.ownerLabel}: {memberName(b.owner_id)}</div>
                       {isOwnerOf(b) ? (
@@ -777,6 +781,13 @@ export default function App() {
                 </select>
               </Field>
               <Field label={t.coverUrl}><input style={inputStyle} value={bookForm.cover_url} onChange={(e) => setBookForm({ ...bookForm, cover_url: e.target.value })} /></Field>
+              <Field label={t.bookLanguage}>
+                <select style={inputStyle} value={bookForm.language} onChange={(e) => setBookForm({ ...bookForm, language: e.target.value })}>
+                  <option value="Indonesia">Indonesia</option>
+                  <option value="English">English</option>
+                  <option value="Arab">Arab</option>
+                </select>
+              </Field>
               <Field label={t.status}>
                 <select style={inputStyle} value={bookForm.availability_status} onChange={(e) => setBookForm({ ...bookForm, availability_status: e.target.value })}>
                   <option value="available">{t.available}</option>
